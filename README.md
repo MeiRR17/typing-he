@@ -37,7 +37,7 @@ Open \`http://localhost:8000\`. GitHub Pages or another static hosting provider 
 
 Browser-stored records are sanitized before metrics are calculated: invalid numeric ranges, timestamps or malformed record shapes are discarded rather than producing nonsensical progress. The seven-day chart uses only completed session records already kept locally. Day boundaries follow the browser's local calendar date; it is a recent activity summary, not a streak or a comparison with other users.
 
-The timer starts on the first input. WPM estimates speed using **five correctly entered characters per word**. Cumulative accuracy counts correct and incorrect character entries, including mistakes corrected later. Passage progress follows the longest correct prefix, not simply the length of what was typed. The trainer prevents pasting into the typing box.
+The timer starts on the first input. WPM estimates speed using **five correctly entered characters per word**. Cumulative accuracy counts correct and incorrect character entries, including mistakes corrected later. Replacing a selected character (even without changing total text length) is counted as a new attempt by comparing inserted segments between textarea states; backspace-only edits do not add attempts. A single edit may still represent multiple characters and is not a hardware keystroke audit. Passage progress follows the longest correct prefix, not simply the length of what was typed. The trainer blocks paste and drag-and-drop bulk input (including the corresponding `beforeinput` input types). Browser extensions, script-driven edits and all input methods cannot be fully authenticated, so scores remain personal practice metrics, not proctored exam results.
 
 The on-screen keyboard is a reference for a common Hebrew layout. Your operating system and hardware settings determine which characters physical keys actually type.
 
@@ -51,6 +51,7 @@ The site does not send typed content or performance metrics to a server. Complet
 index.html       App layout and accessible training controls
 styles.css       Responsive styling and dark theme
 src/app.js       Lessons, timing, accuracy, keyboard and persistence
+src/edits.js     Pure UTF-16 diff of newly inserted characters for accuracy measurement
 src/drills.js    Privacy-preserving letter-error summaries and adaptive drill generator
 src/trends.js    Pure seven-day practice summaries, record sanitation and counts-only CSV export
 \`\`\`
