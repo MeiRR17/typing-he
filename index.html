@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Free Hebrew touch typing trainer with lessons, accuracy tracking and local progress.">
+  <title>typing-he · אימון הקלדה עיוורת בעברית</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./src/app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#practice" data-i18n="skip">מעבר לאימון</a>
+  <header class="topbar">
+    <div class="wrap top-inner">
+      <a class="logo" href="./" aria-label="typing-he">typing<span>-he</span></a>
+      <label class="locale"><span data-i18n="language">שפה</span>
+        <select id="language"><option value="he">עברית</option><option value="en">English</option></select>
+      </label>
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="intro">
+      <p class="eyebrow" data-i18n="eyebrow">אימון חינמי · בלי הרשמה</p>
+      <h1 data-i18n="headline">הקלדה עיוורת בעברית, צעד אחרי צעד.</h1>
+      <p class="subheading" data-i18n="intro">בחרו שיעור, הקלידו את הטקסט, ושפרו את המהירות והדיוק. ההתקדמות נשמרת בדפדפן בלבד.</p>
+      <div class="overview" aria-label="Progress overview">
+        <div><strong id="completed-total">0</strong><span data-i18n="completed">אימונים שהושלמו</span></div>
+        <div><strong id="best-wpm">0</strong><span data-i18n="bestSpeed">מהירות שיא (WPM)</span></div>
+        <div><strong id="average-accuracy">—</strong><span data-i18n="averageAccuracy">דיוק ממוצע</span></div>
+      </div>
+    </section>
+    <section class="layout">
+      <aside class="sidebar" aria-labelledby="lessons-heading">
+        <h2 id="lessons-heading" data-i18n="lessons">שיעורים</h2>
+        <div id="lesson-list" class="lesson-list" role="group" aria-label="Typing lessons"></div>
+        <div class="sidebar-note" data-i18n="lessonNote">אפשר להתחיל מכל שיעור. האימון לא דורש חשבון או חיבור לרשת.</div>
+      </aside>
+      <section class="practice" id="practice" aria-labelledby="lesson-title">
+        <div class="practice-heading">
+          <div>
+            <p class="step" id="lesson-step"></p>
+            <h2 id="lesson-title"></h2>
+            <p class="lesson-description" id="lesson-description"></p>
+          </div>
+          <button class="button" id="restart" type="button" data-i18n="restart">התחל מחדש</button>
+        </div>
+        <div class="stats" aria-label="Live typing statistics">
+          <div><strong id="speed">0</strong><span data-i18n="speed">מילים בדקה</span></div>
+          <div><strong id="accuracy">100%</strong><span data-i18n="accuracy">דיוק נוכחי</span></div>
+          <div><strong id="timer">0:00</strong><span data-i18n="time">זמן</span></div>
+          <div><strong id="progress">0%</strong><span data-i18n="progress">התקדמות</span></div>
+        </div>
+        <div class="progress-track" role="progressbar" aria-label="Lesson completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-track"><span id="progress-fill"></span></div>
+        <div class="passage" id="passage" dir="rtl" lang="he" aria-label="Typing target"></div>
+        <label class="typing-label" for="typing-input" data-i18n="typingLabel">הקלידו כאן לפי הטקסט שמופיע למעלה</label>
+        <textarea id="typing-input" dir="rtl" lang="he" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" rows="3" aria-describedby="typing-status"></textarea>
+        <p class="typing-status" id="typing-status" role="status" aria-live="polite"></p>
+        <div class="keyboard-box">
+          <h3 data-i18n="keyboard">מפת מקשים עברית</h3>
+          <div id="keyboard" class="keyboard" aria-label="Standard Hebrew keyboard layout"></div>
+          <p class="keyboard-hint" data-i18n="keyboardHint">המקשים מציגים את סידור האותיות בעברית במקלדת רגילה. המקור של התווים הוא מהמקלדת שלך.</p>
+        </div>
+      </section>
+    </section>
+    <section class="history" aria-labelledby="history-heading">
+      <div class="history-heading">
+        <h2 id="history-heading" data-i18n="history">אימונים אחרונים</h2>
+        <button class="button danger" type="button" id="clear-history" data-i18n="clearHistory">איפוס התקדמות</button>
+      </div>
+      <ol id="history-list"></ol>
+      <p class="small" data-i18n="storage">התוצאות נשמרות ב־localStorage בדפדפן הזה בלבד. ניקוי נתוני הגלישה ימחוק אותן.</p>
+    </section>
+  </main>
+  <footer class="wrap footer">Open source · <a href="https://github.com/MeiRR17/typing-he">GitHub</a> · <a href="https://github.com/MeiRR17">Meir Dvir</a></footer>
+</body>
+</html>
