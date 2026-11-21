@@ -1,5 +1,5 @@
 import { cleanMistakes, mergeMistakes, weakKeys, createAdaptiveTarget } from './drills.js';
-import { weeklyActivity } from './trends.js';
+import { weeklyActivity, weeklyActivityCsv, cleanSessionRecords } from './trends.js';
 
 const STORAGE_KEY = 'typing-he:sessions:v1';
 const MISTAKES_KEY = 'typing-he:mistakes:v1';
@@ -75,7 +75,7 @@ const TEXT = {
     weakNote: 'ספירת שגיאות לפי האות המצופה בלבד; לא נשמרים קטעי טקסט מוקלדים.',
     weekHeading: 'פעילות בשבעת הימים האחרונים', weekEmpty: 'עדיין אין אימונים שהושלמו השבוע.',
     weekSessions: 'אימונים', weekActive: 'ימים פעילים', weekAverage: 'מהירות ממוצעת',
-    weekDay: 'אימונים ביום'
+    weekDay: 'אימונים ביום', weekExport: '↓ CSV'
   },
   en: {
     skip: 'Skip to practice', language: 'Language', eyebrow: 'Free practice · no signup',
@@ -97,7 +97,7 @@ const TEXT = {
     weakNote: 'Only expected-letter error counts are saved, never typed passages.',
     weekHeading: 'Activity over the past seven days', weekEmpty: 'No completed practice sessions this week yet.',
     weekSessions: 'sessions', weekActive: 'active days', weekAverage: 'average speed',
-    weekDay: 'sessions on this day'
+    weekDay: 'sessions on this day', weekExport: '↓ CSV'
   }
 };
 
@@ -125,10 +125,7 @@ function words() { return TEXT[language()]; }
 function loadRecords() {
   try {
     const decoded = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    return Array.isArray(decoded) ? decoded.filter(r =>
-      r && typeof r.lessonId === 'string' && typeof r.wpm === 'number' &&
-      typeof r.accuracy === 'number' && typeof r.finishedAt === 'string'
-    ).slice(-100) : [];
+    return cleanSessionRecords(decoded);
   } catch {
     return [];
   }
@@ -289,6 +286,8 @@ function renderWeakKeys() {
 
 function renderWeekly() {
   const summary = weeklyActivity(records);
+  $('#week-export').textContent = words().weekExport;
+  $('#week-export').disabled = summary.totalSessions === 0;
   const labels = words();
   $('#week-heading').textContent = labels.weekHeading;
   const description = $('#week-summary');
@@ -432,6 +431,20 @@ input.addEventListener('input', () => {
   renderStats();
   $('#typing-status').textContent = words().keepGoing;
   if (current === activeTarget) completeLesson();
+});
+
+$('#week-export').addEventListener('click', () => {
+  if (!weeklyActivity(records).totalSessions) return;
+  const csv = weeklyActivityCsv(records);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'hebrew-typing-weekly-summary.csv';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
 $('#restart').addEventListener('click', () => {
