@@ -1,5 +1,6 @@
 import { cleanMistakes, mergeMistakes, weakKeys, createAdaptiveTarget } from './drills.js';
 import { weeklyActivity, weeklyActivityCsv, cleanSessionRecords } from './trends.js';
+import { insertedSegment } from './edits.js';
 
 const STORAGE_KEY = 'typing-he:sessions:v1';
 const MISTAKES_KEY = 'typing-he:mistakes:v1';
@@ -404,7 +405,15 @@ function completeLesson() {
   renderLessons();
 }
 
+// Block bulk insertion through both the normal paste/drop events and the
+// beforeinput route used by some browsers and mobile input mechanisms.
 input.addEventListener('paste', event => event.preventDefault());
+input.addEventListener('drop', event => event.preventDefault());
+input.addEventListener('beforeinput', event => {
+  if (['insertFromPaste', 'insertFromDrop', 'insertFromYank'].includes(event.inputType)) {
+    event.preventDefault();
+  }
+});
 input.addEventListener('input', () => {
   if (finished) return;
   if (startedAt === null && input.value.length > 0) {
@@ -412,18 +421,17 @@ input.addEventListener('input', () => {
     timerHandle = setInterval(renderStats, 250);
   }
   const current = input.value;
-  if (current.length > previousValue.length) {
-    // Count newly entered characters; revisions with selected text are
-    // accounted for conservatively rather than pretending every correction
-    // was error-free.
-    const start = current.startsWith(previousValue) ? previousValue.length : 0;
-    for (let i = start; i < current.length; i++) {
-      attempts++;
-      const expected = activeTarget[i];
-      if (current[i] === expected) correctAttempts++;
-      else if (expected && /[א-ת]/u.test(expected)) {
-        sessionMistakes[expected] = (sessionMistakes[expected] || 0) + 1;
-      }
+  const { start, inserted } = insertedSegment(previousValue, current);
+  // Unlike a length-only comparison, replacing selected text with an equal
+  // number of characters still counts new attempts and mistakes. A deletion
+  // inserts no characters, so it does not artificially raise typing speed.
+  for (let offset = 0; offset < inserted.length; offset++) {
+    const i = start + offset;
+    attempts++;
+    const expected = activeTarget[i];
+    if (inserted[offset] === expected) correctAttempts++;
+    else if (expected && /[א-ת]/u.test(expected)) {
+      sessionMistakes[expected] = (sessionMistakes[expected] || 0) + 1;
     }
   }
   previousValue = current;
