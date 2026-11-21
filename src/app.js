@@ -1,4 +1,5 @@
 import { cleanMistakes, mergeMistakes, weakKeys, createAdaptiveTarget } from './drills.js';
+import { weeklyActivity } from './trends.js';
 
 const STORAGE_KEY = 'typing-he:sessions:v1';
 const MISTAKES_KEY = 'typing-he:mistakes:v1';
@@ -71,7 +72,10 @@ const TEXT = {
     none: 'אין עדיין אימונים שהושלמו.', confirmClear: 'למחוק את כל ההתקדמות שנשמרה בדפדפן הזה?',
     cleared: 'ההתקדמות אופסה.', best: 'שיא',
     weakHeading: 'אותיות לתרגול', noWeakKeys: 'לא זוהו טעויות עדיין. האימון האישי מתחיל בתרגול שורת הבית.',
-    weakNote: 'ספירת שגיאות לפי האות המצופה בלבד; לא נשמרים קטעי טקסט מוקלדים.'
+    weakNote: 'ספירת שגיאות לפי האות המצופה בלבד; לא נשמרים קטעי טקסט מוקלדים.',
+    weekHeading: 'פעילות בשבעת הימים האחרונים', weekEmpty: 'עדיין אין אימונים שהושלמו השבוע.',
+    weekSessions: 'אימונים', weekActive: 'ימים פעילים', weekAverage: 'מהירות ממוצעת',
+    weekDay: 'אימונים ביום'
   },
   en: {
     skip: 'Skip to practice', language: 'Language', eyebrow: 'Free practice · no signup',
@@ -90,7 +94,10 @@ const TEXT = {
     none: 'No completed sessions yet.', confirmClear: 'Delete all locally saved typing progress?',
     cleared: 'Progress reset.', best: 'Best',
     weakHeading: 'Keys to practice', noWeakKeys: 'No mistakes yet. The personal drill starts with home-row letters.',
-    weakNote: 'Only expected-letter error counts are saved, never typed passages.'
+    weakNote: 'Only expected-letter error counts are saved, never typed passages.',
+    weekHeading: 'Activity over the past seven days', weekEmpty: 'No completed practice sessions this week yet.',
+    weekSessions: 'sessions', weekActive: 'active days', weekAverage: 'average speed',
+    weekDay: 'sessions on this day'
   }
 };
 
@@ -280,7 +287,48 @@ function renderWeakKeys() {
   $('#weak-keys-note').textContent = words().weakNote;
 }
 
+function renderWeekly() {
+  const summary = weeklyActivity(records);
+  const labels = words();
+  $('#week-heading').textContent = labels.weekHeading;
+  const description = $('#week-summary');
+  description.textContent = summary.totalSessions
+    ? summary.totalSessions + ' ' + labels.weekSessions + ' · ' +
+      summary.activeDays + ' ' + labels.weekActive + ' · ' +
+      labels.weekAverage + ': ' + summary.averageWpm + ' WPM'
+    : labels.weekEmpty;
+  const region = $('#week-bars');
+  region.replaceChildren();
+  const maxCount = Math.max(1, ...summary.days.map(day => day.sessions));
+  const locale = language() === 'he' ? 'he-IL' : 'en-US';
+  const formatter = new Intl.DateTimeFormat(locale, { weekday: 'short', month: 'short', day: 'numeric' });
+  const fragment = document.createDocumentFragment();
+  for (const day of summary.days) {
+    const row = document.createElement('li');
+    const date = new Date(day.date + 'T12:00:00');
+    const label = document.createElement('time');
+    label.dateTime = day.date;
+    label.textContent = formatter.format(date);
+    const graph = document.createElement('div');
+    graph.className = 'week-bar-track';
+    graph.setAttribute('aria-hidden', 'true');
+    const fill = document.createElement('span');
+    fill.className = 'week-bar-fill';
+    fill.style.width = (day.sessions / maxCount * 100) + '%';
+    graph.append(fill);
+    const value = document.createElement('span');
+    value.className = 'week-count';
+    value.textContent = String(day.sessions);
+    row.setAttribute('aria-label', formatter.format(date) + ': ' +
+      day.sessions + ' ' + labels.weekDay);
+    row.append(label, graph, value);
+    fragment.append(row);
+  }
+  region.append(fragment);
+}
+
 function renderHistory() {
+  renderWeekly();
   historyContainer.replaceChildren();
   const recent = records.slice(-5).reverse();
   if (!recent.length) {
