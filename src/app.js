@@ -1,4 +1,7 @@
+import { cleanMistakes, mergeMistakes, weakKeys, createAdaptiveTarget } from './drills.js';
+
 const STORAGE_KEY = 'typing-he:sessions:v1';
+const MISTAKES_KEY = 'typing-he:mistakes:v1';
 const LESSONS = [
   {
     id: 'home',
@@ -35,6 +38,12 @@ const LESSONS = [
     title: { he: 'אימון שטף', en: 'Fluency challenge' },
     description: { he: 'קטע ארוך לפיתוח קצב יציב ודיוק.', en: 'Build speed while maintaining accuracy over a paragraph.' },
     target: 'הקלדה עיוורת היא מיומנות שאפשר לפתח בעזרת אימון קבוע. בהתחלה כדאי להקליד לאט ולשים לב לדיוק. עם הזמן האצבעות לומדות את מיקומי האותיות, והמחשבה יכולה להתמקד במילים עצמן במקום במקלדת.'
+  },
+  {
+    id: 'adaptive',
+    title: { he: 'אימון אישי', en: 'Personalized drill' },
+    description: { he: 'תרגול לפי האותיות שטעית בהן באימונים קודמים.', en: 'Practice letters you mistyped in previous sessions.' },
+    target: ''
   }
 ];
 
@@ -60,7 +69,9 @@ const TEXT = {
     keepGoing: 'המשיכו להקליד. אפשר לתקן שגיאות באמצעות Backspace.',
     complete: 'השיעור הושלם! התוצאה נשמרה בדפדפן.',
     none: 'אין עדיין אימונים שהושלמו.', confirmClear: 'למחוק את כל ההתקדמות שנשמרה בדפדפן הזה?',
-    cleared: 'ההתקדמות אופסה.', best: 'שיא'
+    cleared: 'ההתקדמות אופסה.', best: 'שיא',
+    weakHeading: 'אותיות לתרגול', noWeakKeys: 'לא זוהו טעויות עדיין. האימון האישי מתחיל בתרגול שורת הבית.',
+    weakNote: 'ספירת שגיאות לפי האות המצופה בלבד; לא נשמרים קטעי טקסט מוקלדים.'
   },
   en: {
     skip: 'Skip to practice', language: 'Language', eyebrow: 'Free practice · no signup',
@@ -77,7 +88,9 @@ const TEXT = {
     keepGoing: 'Keep typing. Use Backspace to correct mistakes.',
     complete: 'Lesson completed! Your result was saved in this browser.',
     none: 'No completed sessions yet.', confirmClear: 'Delete all locally saved typing progress?',
-    cleared: 'Progress reset.', best: 'Best'
+    cleared: 'Progress reset.', best: 'Best',
+    weakHeading: 'Keys to practice', noWeakKeys: 'No mistakes yet. The personal drill starts with home-row letters.',
+    weakNote: 'Only expected-letter error counts are saved, never typed passages.'
   }
 };
 
@@ -89,6 +102,9 @@ const historyContainer = $('#history-list');
 const langSelect = $('#language');
 let selected = 0;
 let records = loadRecords();
+let mistakes = loadMistakes();
+let sessionMistakes = Object.create(null);
+let activeTarget = '';
 let startedAt = null;
 let timerHandle = null;
 let attempts = 0;
@@ -114,6 +130,14 @@ function loadRecords() {
 function saveRecords() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
   catch { /* Training remains usable if storage is disabled. */ }
+}
+function loadMistakes() {
+  try { return cleanMistakes(JSON.parse(localStorage.getItem(MISTAKES_KEY) || '{}')); }
+  catch { return cleanMistakes({}); }
+}
+function saveMistakes() {
+  try { localStorage.setItem(MISTAKES_KEY, JSON.stringify(mistakes)); }
+  catch { /* Practice remains available if storage is disabled. */ }
 }
 
 function elapsedMs() {
@@ -200,7 +224,7 @@ function renderKeyboard(nextCharacter) {
 }
 
 function renderPassage() {
-  const target = LESSONS[selected].target;
+  const target = activeTarget;
   const value = input.value;
   let prefixLength = 0;
   while (prefixLength < value.length && prefixLength < target.length &&
@@ -234,6 +258,26 @@ function renderOverview() {
   $('#average-accuracy').textContent = records.length
     ? Math.round(records.reduce((sum, record) => sum + record.accuracy, 0) / records.length) + '%'
     : '—';
+}
+
+function renderWeakKeys() {
+  const region = $('#weak-keys');
+  region.replaceChildren();
+  const keys = weakKeys(mistakes);
+  if (!keys.length) {
+    const message = document.createElement('p');
+    message.textContent = words().noWeakKeys;
+    region.append(message);
+  } else {
+    for (const item of keys) {
+      const chip = document.createElement('span');
+      chip.className = 'weak-key';
+      chip.textContent = item.letter + ' · ' + item.count;
+      region.append(chip);
+    }
+  }
+  $('#weak-keys-heading').textContent = words().weakHeading;
+  $('#weak-keys-note').textContent = words().weakNote;
 }
 
 function renderHistory() {
@@ -273,6 +317,8 @@ function resetLesson() {
   correctAttempts = 0;
   previousValue = '';
   finished = false;
+  sessionMistakes = Object.create(null);
+  activeTarget = LESSONS[selected].id === 'adaptive' ? createAdaptiveTarget(mistakes) : LESSONS[selected].target;
   input.disabled = false;
   input.value = '';
   const lesson = LESSONS[selected];
@@ -303,6 +349,9 @@ function completeLesson() {
   });
   records = records.slice(-100);
   saveRecords();
+  mistakes = mergeMistakes(mistakes, sessionMistakes);
+  saveMistakes();
+  renderWeakKeys();
   renderOverview();
   renderHistory();
   renderLessons();
@@ -323,14 +372,18 @@ input.addEventListener('input', () => {
     const start = current.startsWith(previousValue) ? previousValue.length : 0;
     for (let i = start; i < current.length; i++) {
       attempts++;
-      if (current[i] === LESSONS[selected].target[i]) correctAttempts++;
+      const expected = activeTarget[i];
+      if (current[i] === expected) correctAttempts++;
+      else if (expected && /[א-ת]/u.test(expected)) {
+        sessionMistakes[expected] = (sessionMistakes[expected] || 0) + 1;
+      }
     }
   }
   previousValue = current;
   renderPassage();
   renderStats();
   $('#typing-status').textContent = words().keepGoing;
-  if (current === LESSONS[selected].target) completeLesson();
+  if (current === activeTarget) completeLesson();
 });
 
 $('#restart').addEventListener('click', () => {
@@ -342,18 +395,24 @@ langSelect.addEventListener('change', () => {
   resetLesson();
   renderOverview();
   renderHistory();
+  renderWeakKeys();
 });
 $('#clear-history').addEventListener('click', () => {
   if (!window.confirm(words().confirmClear)) return;
   records = [];
+  mistakes = cleanMistakes({});
+  sessionMistakes = Object.create(null);
+  saveMistakes();
   saveRecords();
   renderOverview();
   renderHistory();
   renderLessons();
+  renderWeakKeys();
   $('#typing-status').textContent = words().cleared;
 });
 
 translate();
 renderOverview();
 renderHistory();
+renderWeakKeys();
 resetLesson();
