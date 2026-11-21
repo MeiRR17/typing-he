@@ -62,3 +62,47 @@ export function weeklyActivity(records, now = new Date()) {
     advisory: 'This summary uses only completed sessions stored in the current browser.',
   };
 }
+
+
+/**
+ * Sanitize localStorage session records before they reach trend or overview
+ * arithmetic. Input can be stale, manually edited or corrupt.
+ */
+export function cleanSessionRecords(value, { maximum = 100 } = {}) {
+  if (!Array.isArray(value) || !Number.isInteger(maximum) || maximum < 1 || maximum > 1000) {
+    return [];
+  }
+  return value.filter(item => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+    if (typeof item.lessonId !== 'string' || !/^[a-z-]{1,32}$/.test(item.lessonId)) return false;
+    if (!Number.isFinite(item.wpm) || item.wpm < 0 || item.wpm > 10000 ||
+        !Number.isFinite(item.accuracy) || item.accuracy < 0 || item.accuracy > 100) return false;
+    if (typeof item.finishedAt !== 'string' || item.finishedAt.length > 40) return false;
+    const date = new Date(item.finishedAt);
+    if (!Number.isFinite(date.getTime())) return false;
+    if (item.seconds !== undefined && (!Number.isFinite(item.seconds) ||
+        item.seconds < 0 || item.seconds > 24 * 3600)) return false;
+    return true;
+  }).slice(-maximum).map(item => ({
+    lessonId: item.lessonId,
+    wpm: item.wpm,
+    accuracy: item.accuracy,
+    seconds: item.seconds,
+    finishedAt: item.finishedAt,
+  }));
+}
+
+/** Seven rows of counts and daily averages; no lessons or typed text. */
+export function weeklyActivityCsv(records, now = new Date()) {
+  const result = weeklyActivity(records, now);
+  const lines = ['date,sessions,average_wpm,average_accuracy_percent'];
+  for (const day of result.days) {
+    lines.push([
+      day.date,
+      day.sessions,
+      day.averageWpm ?? '',
+      day.averageAccuracy ?? '',
+    ].join(','));
+  }
+  return '\uFEFF' + lines.join('\r\n') + '\r\n';
+}
