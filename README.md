@@ -13,6 +13,7 @@ A free, offline-friendly browser application. No server, account, third-party li
 - A recent-session history, per-lesson best speed and overall progress overview.
 - A local weak-key panel that ranks expected Hebrew letters entered incorrectly; the personalized drill adapts after completed lessons.
 - A **seven-day local activity view** showing completed sessions per day, total sessions, active days and session-weighted average WPM, including days with no practice.
+- Export the last seven local calendar days as **CSV** with daily completion counts and mean WPM/accuracy, including zero-activity days. It contains **no typed text, character mistakes, or lesson passages**. The export button is disabled when the selected week contains no sessions.
 - Hebrew and English interface language options, responsive layout and keyboard-accessible controls.
 - Local-only progress using browser \`localStorage\`, with an explicit reset action.
 
@@ -34,7 +35,7 @@ Open \`http://localhost:8000\`. GitHub Pages or another static hosting provider 
 4. Once your text matches the target exactly, the session finishes and saves its results locally.
 5. Choose **Personalized drill / אימון אישי** to practice your five most frequently mistyped letters. Until mistakes have been recorded, it uses basic home-row practice. Start the personalized lesson again after completing other lessons to refresh its target.
 
-The seven-day chart uses only completed session records already kept locally. Day boundaries follow the browser's local calendar date; it is a recent activity summary, not a streak or a comparison with other users.
+Browser-stored records are sanitized before metrics are calculated: invalid numeric ranges, timestamps or malformed record shapes are discarded rather than producing nonsensical progress. The seven-day chart uses only completed session records already kept locally. Day boundaries follow the browser's local calendar date; it is a recent activity summary, not a streak or a comparison with other users.
 
 The timer starts on the first input. WPM estimates speed using **five correctly entered characters per word**. Cumulative accuracy counts correct and incorrect character entries, including mistakes corrected later. Passage progress follows the longest correct prefix, not simply the length of what was typed. The trainer prevents pasting into the typing box.
 
@@ -51,7 +52,7 @@ index.html       App layout and accessible training controls
 styles.css       Responsive styling and dark theme
 src/app.js       Lessons, timing, accuracy, keyboard and persistence
 src/drills.js    Privacy-preserving letter-error summaries and adaptive drill generator
-src/trends.js    Pure seven-day practice summaries from locally stored metrics
+src/trends.js    Pure seven-day practice summaries, record sanitation and counts-only CSV export
 \`\`\`
 
 ## Author
