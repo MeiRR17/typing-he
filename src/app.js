@@ -358,6 +358,16 @@ function stopTimer() {
   timerHandle = null;
 }
 
+function renderLessonLabels() {
+  const lesson = LESSONS[selected];
+  $('#lesson-title').textContent = lesson.title[language()];
+  $('#lesson-step').textContent = words().step + ' ' + (selected + 1) + ' / ' + LESSONS.length;
+  $('#lesson-description').textContent = lesson.description[language()];
+  $('#typing-status').textContent = finished ? words().complete :
+    startedAt === null ? words().ready : words().keepGoing;
+  $('#typing-status').classList.toggle('complete', finished);
+}
+
 function resetLesson() {
   stopTimer();
   startedAt = null;
@@ -369,12 +379,7 @@ function resetLesson() {
   activeTarget = LESSONS[selected].id === 'adaptive' ? createAdaptiveTarget(mistakes) : LESSONS[selected].target;
   input.disabled = false;
   input.value = '';
-  const lesson = LESSONS[selected];
-  $('#lesson-title').textContent = lesson.title[language()];
-  $('#lesson-step').textContent = words().step + ' ' + (selected + 1) + ' / ' + LESSONS.length;
-  $('#lesson-description').textContent = lesson.description[language()];
-  $('#typing-status').textContent = words().ready;
-  $('#typing-status').classList.remove('complete');
+  renderLessonLabels();
   renderLessons();
   renderPassage();
   renderStats();
@@ -460,8 +465,13 @@ $('#restart').addEventListener('click', () => {
   input.focus();
 });
 langSelect.addEventListener('change', () => {
+  // UI localization must not restart an active lesson, clear typed content,
+  // discard mistake counters or reset the monotonic timing interval.
   translate();
-  resetLesson();
+  renderLessonLabels();
+  renderLessons();
+  renderPassage();
+  renderStats();
   renderOverview();
   renderHistory();
   renderWeakKeys();
