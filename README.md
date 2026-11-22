@@ -13,6 +13,7 @@ A free, offline-friendly browser application. No server, account, third-party li
 - A recent-session history, per-lesson best speed and overall progress overview.
 - A local weak-key panel that ranks expected Hebrew letters entered incorrectly; the personalized drill adapts after completed lessons.
 - A **seven-day local activity view** showing completed sessions per day, total sessions, active days and session-weighted average WPM, including days with no practice.
+- A **recent practice streak** over at most 14 browser-local calendar dates. The streak counts consecutive days with at least one saved completed session, ending today or (if today has no session yet) yesterday. Two consecutive inactive dates reset the displayed streak to zero. If the streak reaches the 14-day observation boundary, it is reported as **at least N days** rather than a falsely complete lifetime total; the 100-session local retention bound can also make the displayed figure an underestimate. No tracking service, reminder or generated practice text is added.
 - A **week-over-week comparison** against the immediately preceding seven browser-local calendar dates. Displays completed-session count and delta; average WPM and accuracy deltas are shown only when **both** windows have sessions (otherwise marked unavailable rather than treating missing metrics as zero). It is a descriptive comparison of locally retained sessions, not a streak guarantee or performance prediction.
 - Export the last seven local calendar days as **CSV** or **JSON** with daily completion counts and mean WPM/accuracy, including zero-activity days. JSON also includes active days, weekly totals, average WPM/accuracy and explicit browser-local date window. Neither export contains typed text, lesson IDs, individual session timestamps, character mistakes, or lesson passages. Export buttons are disabled when the displayed week contains no sessions.
 - Hebrew and English interface language options, responsive layout and keyboard-accessible controls. Switching languages during a lesson preserves typed text, target, accuracy counters, elapsed time and personalized drill selection; only interface labels and feedback are translated.
@@ -54,7 +55,7 @@ styles.css       Responsive styling and dark theme
 src/app.js       Lessons, timing, accuracy, keyboard and persistence
 src/edits.js     Pure UTF-16 diff of newly inserted characters for accuracy measurement
 src/drills.js    Privacy-preserving letter-error summaries and adaptive drill generator
-src/trends.js    Pure weekly and adjacent-week summaries, record sanitation and aggregate-only CSV/JSON exports
+src/trends.js    Pure weekly and adjacent-week summaries, recent bounded streak, record sanitation and aggregate-only CSV/JSON exports
 \`\`\`
 
 ## Author

@@ -1,5 +1,5 @@
 import { cleanMistakes, mergeMistakes, weakKeys, createAdaptiveTarget } from './drills.js';
-import { weeklyActivity, weeklyActivityCsv, weeklyActivityJson, weeklyComparison, cleanSessionRecords } from './trends.js';
+import { weeklyActivity, weeklyActivityCsv, weeklyActivityJson, weeklyComparison, recentPracticeStreak, cleanSessionRecords } from './trends.js';
 import { insertedSegment } from './edits.js';
 
 const STORAGE_KEY = 'typing-he:sessions:v1';
@@ -78,7 +78,9 @@ const TEXT = {
     weekSessions: 'אימונים', weekActive: 'ימים פעילים', weekAverage: 'מהירות ממוצעת',
     weekDay: 'אימונים ביום', weekExport: '↓ CSV', weekExportJson: '↓ JSON',
     weekCompare: 'בהשוואה לשבעת הימים הקודמים', weekVs: 'לעומת', weekWpmDelta: 'שינוי במהירות ממוצעת',
-    weekAccuracyDelta: 'שינוי בדיוק ממוצע', weekNoEarlier: 'אין אימונים באחד החלונות, ולכן אין השוואת מהירות ודיוק'
+    weekAccuracyDelta: 'שינוי בדיוק ממוצע', weekNoEarlier: 'אין אימונים באחד החלונות, ולכן אין השוואת מהירות ודיוק',
+    streak: 'רצף אימון אחרון', streakDays: 'ימים', streakAtLeast: 'לפחות', streakThroughYesterday: 'עד אתמול (היום עדיין ללא אימון)',
+    streakToday: 'כולל היום', streakNone: 'אין רצף פעיל של אימונים בימים האחרונים'
   },
   en: {
     skip: 'Skip to practice', language: 'Language', eyebrow: 'Free practice · no signup',
@@ -102,7 +104,9 @@ const TEXT = {
     weekSessions: 'sessions', weekActive: 'active days', weekAverage: 'average speed',
     weekDay: 'sessions on this day', weekExport: '↓ CSV', weekExportJson: '↓ JSON',
     weekCompare: 'Compared with the previous seven days', weekVs: 'vs', weekWpmDelta: 'Average speed change',
-    weekAccuracyDelta: 'Average accuracy change', weekNoEarlier: 'A week has no sessions; speed and accuracy cannot be compared'
+    weekAccuracyDelta: 'Average accuracy change', weekNoEarlier: 'A week has no sessions; speed and accuracy cannot be compared',
+    streak: 'Recent practice streak', streakDays: 'days', streakAtLeast: 'at least', streakThroughYesterday: 'through yesterday (no session today yet)',
+    streakToday: 'including today', streakNone: 'No active practice streak over the last two days'
   }
 };
 
@@ -318,6 +322,12 @@ function renderWeekly() {
     parts.push(labels.weekAccuracyDelta + ': ' + signed(comparison.accuracyDifference) + ' pp');
   } else parts.push(labels.weekNoEarlier);
   $('#week-comparison').textContent = parts.join(' · ');
+  const streak = recentPracticeStreak(records);
+  $('#week-streak').textContent = streak.days
+    ? labels.streak + ': ' + (streak.atLeast ? labels.streakAtLeast + ' ' : '') +
+      streak.days + ' ' + labels.streakDays + ' · ' +
+      (streak.graceToday ? labels.streakThroughYesterday : labels.streakToday)
+    : labels.streakNone;
   const region = $('#week-bars');
   region.replaceChildren();
   const maxCount = Math.max(1, ...summary.days.map(day => day.sessions));

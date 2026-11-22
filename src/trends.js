@@ -161,3 +161,43 @@ export function weeklyComparison(records, now = new Date()) {
     advisory: 'Descriptive comparison of saved practice sessions in adjacent browser-local seven-day windows, not a performance forecast.',
   };
 }
+
+
+/**
+ * A bounded daily practice streak from saved completed-session metrics.
+ * The 14-day window is derived from the same two adjacent seven-day windows
+ * as the comparison UI and respects browser-local civil days across DST.
+ *
+ * If no session was completed today, yesterday may remain the end of the
+ * latest continuous streak. Two inactive days terminate it. At the left
+ * boundary we report "at least" rather than claiming a complete streak.
+ * Retaining only 100 local sessions may underestimate actual practice.
+ */
+export function recentPracticeStreak(records, now = new Date()) {
+  const { current, previous } = weeklyComparison(records, now);
+  const days = [...previous.days, ...current.days];
+  const todayIndex = days.length - 1;
+  const lastIndex = days[todayIndex].sessions > 0
+    ? todayIndex : todayIndex - 1;
+  const graceToday = lastIndex < todayIndex;
+  if (lastIndex < 0 || days[lastIndex].sessions === 0) {
+    return {
+      days: 0,
+      throughDate: null,
+      graceToday: false,
+      atLeast: false,
+      observationDays: 14,
+    };
+  }
+  let count = 0;
+  for (let index = lastIndex; index >= 0 && days[index].sessions > 0; index--) {
+    count++;
+  }
+  return {
+    days: count,
+    throughDate: days[lastIndex].date,
+    graceToday,
+    atLeast: count === lastIndex + 1,
+    observationDays: 14,
+  };
+}
