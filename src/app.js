@@ -1,5 +1,5 @@
 import { cleanMistakes, mergeMistakes, weakKeys, createAdaptiveTarget } from './drills.js';
-import { weeklyActivity, weeklyActivityCsv, weeklyActivityJson, cleanSessionRecords } from './trends.js';
+import { weeklyActivity, weeklyActivityCsv, weeklyActivityJson, weeklyComparison, cleanSessionRecords } from './trends.js';
 import { insertedSegment } from './edits.js';
 
 const STORAGE_KEY = 'typing-he:sessions:v1';
@@ -76,7 +76,9 @@ const TEXT = {
     weakNote: 'ספירת שגיאות לפי האות המצופה בלבד; לא נשמרים קטעי טקסט מוקלדים.',
     weekHeading: 'פעילות בשבעת הימים האחרונים', weekEmpty: 'עדיין אין אימונים שהושלמו השבוע.',
     weekSessions: 'אימונים', weekActive: 'ימים פעילים', weekAverage: 'מהירות ממוצעת',
-    weekDay: 'אימונים ביום', weekExport: '↓ CSV', weekExportJson: '↓ JSON'
+    weekDay: 'אימונים ביום', weekExport: '↓ CSV', weekExportJson: '↓ JSON',
+    weekCompare: 'בהשוואה לשבעת הימים הקודמים', weekVs: 'לעומת', weekWpmDelta: 'שינוי במהירות ממוצעת',
+    weekAccuracyDelta: 'שינוי בדיוק ממוצע', weekNoEarlier: 'אין אימונים באחד החלונות, ולכן אין השוואת מהירות ודיוק'
   },
   en: {
     skip: 'Skip to practice', language: 'Language', eyebrow: 'Free practice · no signup',
@@ -98,7 +100,9 @@ const TEXT = {
     weakNote: 'Only expected-letter error counts are saved, never typed passages.',
     weekHeading: 'Activity over the past seven days', weekEmpty: 'No completed practice sessions this week yet.',
     weekSessions: 'sessions', weekActive: 'active days', weekAverage: 'average speed',
-    weekDay: 'sessions on this day', weekExport: '↓ CSV', weekExportJson: '↓ JSON'
+    weekDay: 'sessions on this day', weekExport: '↓ CSV', weekExportJson: '↓ JSON',
+    weekCompare: 'Compared with the previous seven days', weekVs: 'vs', weekWpmDelta: 'Average speed change',
+    weekAccuracyDelta: 'Average accuracy change', weekNoEarlier: 'A week has no sessions; speed and accuracy cannot be compared'
   }
 };
 
@@ -289,7 +293,8 @@ function renderWeakKeys() {
 }
 
 function renderWeekly() {
-  const summary = weeklyActivity(records);
+  const comparison = weeklyComparison(records);
+  const summary = comparison.current;
   $('#week-export').textContent = words().weekExport;
   $('#week-export-json').textContent = words().weekExportJson;
   $('#week-export').disabled = $('#week-export-json').disabled = summary.totalSessions === 0;
@@ -301,6 +306,18 @@ function renderWeekly() {
       summary.activeDays + ' ' + labels.weekActive + ' · ' +
       labels.weekAverage + ': ' + summary.averageWpm + ' WPM'
     : labels.weekEmpty;
+  const prior = comparison.previous;
+  const signed = value => (value > 0 ? '+' : '') + value;
+  const parts = [
+    labels.weekCompare + ': ' + summary.totalSessions + ' ' + labels.weekVs + ' ' +
+      prior.totalSessions + ' ' + labels.weekSessions +
+      ' (' + signed(comparison.sessionDifference) + ')',
+  ];
+  if (comparison.wpmDifference !== null) {
+    parts.push(labels.weekWpmDelta + ': ' + signed(comparison.wpmDifference) + ' WPM');
+    parts.push(labels.weekAccuracyDelta + ': ' + signed(comparison.accuracyDifference) + ' pp');
+  } else parts.push(labels.weekNoEarlier);
+  $('#week-comparison').textContent = parts.join(' · ');
   const region = $('#week-bars');
   region.replaceChildren();
   const maxCount = Math.max(1, ...summary.days.map(day => day.sessions));

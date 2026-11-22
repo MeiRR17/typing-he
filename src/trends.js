@@ -135,3 +135,29 @@ export function weeklyActivityJson(records, now = new Date()) {
     advisory: 'Aggregated completed-session metrics only. No lesson IDs, typed text, individual timestamps or mistake details. Activity data may still be sensitive.',
   }, null, 2) + '\n';
 }
+
+
+/**
+ * Compare two adjacent seven-day windows in browser-local calendar dates.
+ * The current window includes today; the previous window ends seven days
+ * before today. Counts can be compared even when a week is empty, but speed
+ * and accuracy deltas require completed sessions in BOTH weeks.
+ */
+export function weeklyComparison(records, now = new Date()) {
+  if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
+    throw new TypeError('A valid current date is required.');
+  }
+  const previousAnchor = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7, 12);
+  const current = weeklyActivity(records, now);
+  const previous = weeklyActivity(records, previousAnchor);
+  return {
+    current,
+    previous,
+    sessionDifference: current.totalSessions - previous.totalSessions,
+    wpmDifference: current.totalSessions && previous.totalSessions
+      ? current.averageWpm - previous.averageWpm : null,
+    accuracyDifference: current.totalSessions && previous.totalSessions
+      ? current.averageAccuracy - previous.averageAccuracy : null,
+    advisory: 'Descriptive comparison of saved practice sessions in adjacent browser-local seven-day windows, not a performance forecast.',
+  };
+}
