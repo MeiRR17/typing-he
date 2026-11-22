@@ -1,5 +1,5 @@
 import { cleanMistakes, mergeMistakes, weakKeys, createAdaptiveTarget } from './drills.js';
-import { weeklyActivity, weeklyActivityCsv, weeklyActivityJson, weeklyComparison, recentPracticeStreak, cleanSessionRecords } from './trends.js';
+import { weeklyActivity, weeklyActivityCsv, weeklyActivityJson, weeklyComparison, weeklyComparisonJson, recentPracticeStreak, cleanSessionRecords } from './trends.js';
 import { insertedSegment } from './edits.js';
 
 const STORAGE_KEY = 'typing-he:sessions:v1';
@@ -76,7 +76,7 @@ const TEXT = {
     weakNote: 'ספירת שגיאות לפי האות המצופה בלבד; לא נשמרים קטעי טקסט מוקלדים.',
     weekHeading: 'פעילות בשבעת הימים האחרונים', weekEmpty: 'עדיין אין אימונים שהושלמו השבוע.',
     weekSessions: 'אימונים', weekActive: 'ימים פעילים', weekAverage: 'מהירות ממוצעת',
-    weekDay: 'אימונים ביום', weekExport: '↓ CSV', weekExportJson: '↓ JSON',
+    weekDay: 'אימונים ביום', weekExport: '↓ CSV', weekExportJson: '↓ JSON', weekCompareExport: '↓ השוואת 14 ימים',
     weekCompare: 'בהשוואה לשבעת הימים הקודמים', weekVs: 'לעומת', weekWpmDelta: 'שינוי במהירות ממוצעת',
     weekAccuracyDelta: 'שינוי בדיוק ממוצע', weekNoEarlier: 'אין אימונים באחד החלונות, ולכן אין השוואת מהירות ודיוק',
     streak: 'רצף אימון אחרון', streakDays: 'ימים', streakAtLeast: 'לפחות', streakThroughYesterday: 'עד אתמול (היום עדיין ללא אימון)',
@@ -102,7 +102,7 @@ const TEXT = {
     weakNote: 'Only expected-letter error counts are saved, never typed passages.',
     weekHeading: 'Activity over the past seven days', weekEmpty: 'No completed practice sessions this week yet.',
     weekSessions: 'sessions', weekActive: 'active days', weekAverage: 'average speed',
-    weekDay: 'sessions on this day', weekExport: '↓ CSV', weekExportJson: '↓ JSON',
+    weekDay: 'sessions on this day', weekExport: '↓ CSV', weekExportJson: '↓ JSON', weekCompareExport: '↓ 14-day comparison',
     weekCompare: 'Compared with the previous seven days', weekVs: 'vs', weekWpmDelta: 'Average speed change',
     weekAccuracyDelta: 'Average accuracy change', weekNoEarlier: 'A week has no sessions; speed and accuracy cannot be compared',
     streak: 'Recent practice streak', streakDays: 'days', streakAtLeast: 'at least', streakThroughYesterday: 'through yesterday (no session today yet)',
@@ -301,7 +301,9 @@ function renderWeekly() {
   const summary = comparison.current;
   $('#week-export').textContent = words().weekExport;
   $('#week-export-json').textContent = words().weekExportJson;
+  $('#week-compare-export').textContent = words().weekCompareExport;
   $('#week-export').disabled = $('#week-export-json').disabled = summary.totalSessions === 0;
+  $('#week-compare-export').disabled = summary.totalSessions + comparison.previous.totalSessions === 0;
   const labels = words();
   $('#week-heading').textContent = labels.weekHeading;
   const description = $('#week-summary');
@@ -537,6 +539,13 @@ $('#week-export').addEventListener('click', () => {
   if (!weeklyActivity(records).totalSessions) return;
   downloadWeeklyReport('hebrew-typing-weekly-summary.csv', weeklyActivityCsv(records),
     'text/csv;charset=utf-8');
+});
+
+$('#week-compare-export').addEventListener('click', () => {
+  const comparison = weeklyComparison(records);
+  if (comparison.current.totalSessions + comparison.previous.totalSessions === 0) return;
+  downloadWeeklyReport('hebrew-typing-14-day-comparison.json', weeklyComparisonJson(records),
+    'application/json;charset=utf-8');
 });
 
 $('#pause').addEventListener('click', togglePause);

@@ -164,6 +164,39 @@ export function weeklyComparison(records, now = new Date()) {
 
 
 /**
+ * Export a two-week comparison as a strictly aggregate-only JSON report.
+ * Both seven-day windows remain present even if one has zero sessions.
+ * No individual records, lesson IDs, daily records, error keys or passages
+ * are serialized. Dates and aggregate performance can still be sensitive.
+ */
+export function weeklyComparisonJson(records, now = new Date()) {
+  const comparison = weeklyComparison(records, now);
+  const toWindow = summary => ({
+    start: summary.days[0].date,
+    end: summary.days[summary.days.length - 1].date,
+    totalSessions: summary.totalSessions,
+    activeDays: summary.activeDays,
+    averageWpm: summary.averageWpm,
+    averageAccuracyPercent: summary.averageAccuracy,
+  });
+  const current = toWindow(comparison.current);
+  const previous = toWindow(comparison.previous);
+  return JSON.stringify({
+    format: 'typing-he-adjacent-week-comparison-v1',
+    calendar: 'browser-local',
+    current,
+    previous,
+    differences: {
+      sessions: comparison.sessionDifference,
+      averageWpm: comparison.wpmDifference,
+      averageAccuracyPercentagePoints: comparison.accuracyDifference,
+    },
+    comparisonAvailable: current.totalSessions > 0 && previous.totalSessions > 0,
+    advisory: 'Aggregate completed-session metrics from two adjacent local-calendar weeks. Missing weekly averages and their differences are null, not zero. No individual sessions, lesson IDs, typed text, keystrokes or mistake details. Local retention may omit older sessions; shared aggregates may still be sensitive.',
+  }, null, 2) + '\n';
+}
+
+/**
  * A bounded daily practice streak from saved completed-session metrics.
  * The 14-day window is derived from the same two adjacent seven-day windows
  * as the comparison UI and respects browser-local civil days across DST.
