@@ -106,3 +106,32 @@ export function weeklyActivityCsv(records, now = new Date()) {
   }
   return '\uFEFF' + lines.join('\r\n') + '\r\n';
 }
+
+
+/**
+ * A seven-day, aggregate-only JSON snapshot for personal progress.
+ * Deliberately omit lesson IDs, timestamps, keystrokes, target passages and
+ * error counts. Dates and performance metrics may still be sensitive.
+ */
+export function weeklyActivityJson(records, now = new Date()) {
+  const summary = weeklyActivity(records, now);
+  return JSON.stringify({
+    format: 'typing-he-weekly-activity-v1',
+    window: {
+      start: summary.days[0].date,
+      end: summary.days[summary.days.length - 1].date,
+      calendar: 'browser-local',
+    },
+    totalSessions: summary.totalSessions,
+    activeDays: summary.activeDays,
+    averageWpm: summary.averageWpm,
+    averageAccuracyPercent: summary.averageAccuracy,
+    days: summary.days.map(day => ({
+      date: day.date,
+      sessions: day.sessions,
+      averageWpm: day.averageWpm,
+      averageAccuracyPercent: day.averageAccuracy,
+    })),
+    advisory: 'Aggregated completed-session metrics only. No lesson IDs, typed text, individual timestamps or mistake details. Activity data may still be sensitive.',
+  }, null, 2) + '\n';
+}

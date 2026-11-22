@@ -1,5 +1,5 @@
 import { cleanMistakes, mergeMistakes, weakKeys, createAdaptiveTarget } from './drills.js';
-import { weeklyActivity, weeklyActivityCsv, cleanSessionRecords } from './trends.js';
+import { weeklyActivity, weeklyActivityCsv, weeklyActivityJson, cleanSessionRecords } from './trends.js';
 import { insertedSegment } from './edits.js';
 
 const STORAGE_KEY = 'typing-he:sessions:v1';
@@ -76,7 +76,7 @@ const TEXT = {
     weakNote: 'ספירת שגיאות לפי האות המצופה בלבד; לא נשמרים קטעי טקסט מוקלדים.',
     weekHeading: 'פעילות בשבעת הימים האחרונים', weekEmpty: 'עדיין אין אימונים שהושלמו השבוע.',
     weekSessions: 'אימונים', weekActive: 'ימים פעילים', weekAverage: 'מהירות ממוצעת',
-    weekDay: 'אימונים ביום', weekExport: '↓ CSV'
+    weekDay: 'אימונים ביום', weekExport: '↓ CSV', weekExportJson: '↓ JSON'
   },
   en: {
     skip: 'Skip to practice', language: 'Language', eyebrow: 'Free practice · no signup',
@@ -98,7 +98,7 @@ const TEXT = {
     weakNote: 'Only expected-letter error counts are saved, never typed passages.',
     weekHeading: 'Activity over the past seven days', weekEmpty: 'No completed practice sessions this week yet.',
     weekSessions: 'sessions', weekActive: 'active days', weekAverage: 'average speed',
-    weekDay: 'sessions on this day', weekExport: '↓ CSV'
+    weekDay: 'sessions on this day', weekExport: '↓ CSV', weekExportJson: '↓ JSON'
   }
 };
 
@@ -291,7 +291,8 @@ function renderWeakKeys() {
 function renderWeekly() {
   const summary = weeklyActivity(records);
   $('#week-export').textContent = words().weekExport;
-  $('#week-export').disabled = summary.totalSessions === 0;
+  $('#week-export-json').textContent = words().weekExportJson;
+  $('#week-export').disabled = $('#week-export-json').disabled = summary.totalSessions === 0;
   const labels = words();
   $('#week-heading').textContent = labels.weekHeading;
   const description = $('#week-summary');
@@ -488,18 +489,27 @@ input.addEventListener('input', () => {
   if (current === activeTarget) completeLesson();
 });
 
-$('#week-export').addEventListener('click', () => {
-  if (!weeklyActivity(records).totalSessions) return;
-  const csv = weeklyActivityCsv(records);
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+function downloadWeeklyReport(filename, contents, type) {
+  const blob = new Blob([contents], { type });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'hebrew-typing-weekly-summary.csv';
+  link.download = filename;
   document.body.append(link);
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+$('#week-export-json').addEventListener('click', () => {
+  if (!weeklyActivity(records).totalSessions) return;
+  downloadWeeklyReport('hebrew-typing-weekly-summary.json', weeklyActivityJson(records),
+    'application/json;charset=utf-8');
+});
+$('#week-export').addEventListener('click', () => {
+  if (!weeklyActivity(records).totalSessions) return;
+  downloadWeeklyReport('hebrew-typing-weekly-summary.csv', weeklyActivityCsv(records),
+    'text/csv;charset=utf-8');
 });
 
 $('#pause').addEventListener('click', togglePause);

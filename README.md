@@ -13,7 +13,7 @@ A free, offline-friendly browser application. No server, account, third-party li
 - A recent-session history, per-lesson best speed and overall progress overview.
 - A local weak-key panel that ranks expected Hebrew letters entered incorrectly; the personalized drill adapts after completed lessons.
 - A **seven-day local activity view** showing completed sessions per day, total sessions, active days and session-weighted average WPM, including days with no practice.
-- Export the last seven local calendar days as **CSV** with daily completion counts and mean WPM/accuracy, including zero-activity days. It contains **no typed text, character mistakes, or lesson passages**. The export button is disabled when the selected week contains no sessions.
+- Export the last seven local calendar days as **CSV** or **JSON** with daily completion counts and mean WPM/accuracy, including zero-activity days. JSON also includes active days, weekly totals, average WPM/accuracy and explicit browser-local date window. Neither export contains typed text, lesson IDs, individual session timestamps, character mistakes, or lesson passages. Export buttons are disabled when the displayed week contains no sessions.
 - Hebrew and English interface language options, responsive layout and keyboard-accessible controls. Switching languages during a lesson preserves typed text, target, accuracy counters, elapsed time and personalized drill selection; only interface labels and feedback are translated.
 - Local-only progress using browser \`localStorage\`, with an explicit reset action.
 
@@ -53,7 +53,7 @@ styles.css       Responsive styling and dark theme
 src/app.js       Lessons, timing, accuracy, keyboard and persistence
 src/edits.js     Pure UTF-16 diff of newly inserted characters for accuracy measurement
 src/drills.js    Privacy-preserving letter-error summaries and adaptive drill generator
-src/trends.js    Pure seven-day practice summaries, record sanitation and counts-only CSV export
+src/trends.js    Pure seven-day practice summaries, record sanitation and aggregate-only CSV/JSON exports
 \`\`\`
 
 ## Author
