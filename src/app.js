@@ -62,7 +62,7 @@ const TEXT = {
     intro: 'בחרו שיעור, הקלידו את הטקסט, ושפרו את המהירות והדיוק. ההתקדמות נשמרת בדפדפן בלבד.',
     completed: 'אימונים שהושלמו', bestSpeed: 'מהירות שיא (WPM)', averageAccuracy: 'דיוק ממוצע',
     lessons: 'שיעורים', lessonNote: 'אפשר להתחיל מכל שיעור. האימון לא דורש חשבון או חיבור לרשת.',
-    restart: 'התחל מחדש', speed: 'מילים בדקה', accuracy: 'דיוק מצטבר', time: 'זמן', progress: 'התקדמות',
+    restart: 'התחל מחדש', pause: 'השהה', resume: 'המשך', paused: 'האימון מושהה. לחצו על המשך כדי לחזור להקלדה.', speed: 'מילים בדקה', accuracy: 'דיוק מצטבר', time: 'זמן', progress: 'התקדמות',
     typingLabel: 'הקלידו כאן לפי הטקסט שמופיע למעלה', keyboard: 'מפת מקשים עברית',
     keyboardHint: 'המקשים מציגים את סידור האותיות בעברית במקלדת רגילה. המקור של התווים הוא מהמקלדת שלך.',
     history: 'אימונים אחרונים', clearHistory: 'איפוס התקדמות',
@@ -84,7 +84,7 @@ const TEXT = {
     intro: 'Choose a lesson, type the passage, and improve speed and accuracy. Progress stays in your browser.',
     completed: 'Completed sessions', bestSpeed: 'Best speed (WPM)', averageAccuracy: 'Average accuracy',
     lessons: 'Lessons', lessonNote: 'Start at any lesson. No account or internet connection is required.',
-    restart: 'Restart', speed: 'Words per minute', accuracy: 'Cumulative accuracy', time: 'Time', progress: 'Progress',
+    restart: 'Restart', pause: 'Pause', resume: 'Resume', paused: 'Practice paused. Choose Resume to continue typing.', speed: 'Words per minute', accuracy: 'Cumulative accuracy', time: 'Time', progress: 'Progress',
     typingLabel: 'Type the passage shown above', keyboard: 'Hebrew keyboard reference',
     keyboardHint: 'Keys show the usual Hebrew physical layout. Your own keyboard layout controls actual input.',
     history: 'Recent sessions', clearHistory: 'Reset progress',
@@ -114,6 +114,8 @@ let mistakes = loadMistakes();
 let sessionMistakes = Object.create(null);
 let activeTarget = '';
 let startedAt = null;
+let pausedAt = null;
+let pausedDurationMs = 0;
 let timerHandle = null;
 let attempts = 0;
 let correctAttempts = 0;
@@ -146,7 +148,8 @@ function saveMistakes() {
 }
 
 function elapsedMs() {
-  return startedAt === null ? 0 : performance.now() - startedAt;
+  return startedAt === null ? 0 :
+    Math.max(0, (pausedAt ?? performance.now()) - startedAt - pausedDurationMs);
 }
 function formatTime(ms) {
   const seconds = Math.floor(ms / 1000);
@@ -358,19 +361,56 @@ function stopTimer() {
   timerHandle = null;
 }
 
+function updatePauseControl() {
+  const button = $('#pause');
+  button.disabled = startedAt === null || finished;
+  button.textContent = pausedAt === null ? words().pause : words().resume;
+  button.setAttribute('aria-pressed', String(pausedAt !== null));
+}
+
+function pauseLesson() {
+  if (finished || startedAt === null || pausedAt !== null) return;
+  pausedAt = performance.now();
+  input.disabled = true;
+  stopTimer();
+  renderStats();
+  updatePauseControl();
+  $('#typing-status').textContent = words().paused;
+}
+
+function togglePause() {
+  if (finished || startedAt === null) return;
+  if (pausedAt === null) {
+    pauseLesson();
+    return;
+  }
+  pausedDurationMs += performance.now() - pausedAt;
+  pausedAt = null;
+  input.disabled = false;
+  timerHandle = setInterval(renderStats, 250);
+  updatePauseControl();
+  renderStats();
+  $('#typing-status').textContent = words().keepGoing;
+  input.focus();
+}
+
 function renderLessonLabels() {
   const lesson = LESSONS[selected];
   $('#lesson-title').textContent = lesson.title[language()];
   $('#lesson-step').textContent = words().step + ' ' + (selected + 1) + ' / ' + LESSONS.length;
   $('#lesson-description').textContent = lesson.description[language()];
   $('#typing-status').textContent = finished ? words().complete :
+    pausedAt !== null ? words().paused :
     startedAt === null ? words().ready : words().keepGoing;
   $('#typing-status').classList.toggle('complete', finished);
+  updatePauseControl();
 }
 
 function resetLesson() {
   stopTimer();
   startedAt = null;
+  pausedAt = null;
+  pausedDurationMs = 0;
   attempts = 0;
   correctAttempts = 0;
   previousValue = '';
@@ -391,6 +431,7 @@ function completeLesson() {
   stopTimer();
   renderStats();
   input.disabled = true;
+  updatePauseControl();
   $('#typing-status').textContent = words().complete;
   $('#typing-status').classList.add('complete');
   records.push({
@@ -424,6 +465,7 @@ input.addEventListener('input', () => {
   if (startedAt === null && input.value.length > 0) {
     startedAt = performance.now();
     timerHandle = setInterval(renderStats, 250);
+    updatePauseControl();
   }
   const current = input.value;
   const { start, inserted } = insertedSegment(previousValue, current);
@@ -458,6 +500,12 @@ $('#week-export').addEventListener('click', () => {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+$('#pause').addEventListener('click', togglePause);
+// Stop elapsed-time inflation when the tab is hidden; resume is explicit.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) pauseLesson();
 });
 
 $('#restart').addEventListener('click', () => {
