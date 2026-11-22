@@ -3,17 +3,22 @@
  * Stores only character counts, never passages or typed text.
  */
 const LETTERS = 'אבגדהוזחטיכלמנסעפצקרשתךםןףץ';
-const ALLOWED = new Set([...LETTERS]);
 const FALLBACK = ['ש', 'ד', 'ג', 'כ', 'ע', 'י'];
-const MAX_KEYS = 40;
 const MAX_COUNT = 1_000_000;
 
 /** Sanitize persisted mistake counters, including malformed browser storage. */
 export function cleanMistakes(value) {
   const clean = Object.create(null);
   if (!value || typeof value !== 'object' || Array.isArray(value)) return clean;
-  for (const [letter, count] of Object.entries(value).slice(0, MAX_KEYS)) {
-    if (!ALLOWED.has(letter) || !Number.isSafeInteger(count) || count <= 0) continue;
+  // Look up only the fixed 27 Hebrew letters, regardless of how many
+  // unrelated keys are present or in what order a storage object was built.
+  // Slicing the first 40 object entries could previously discard every
+  // legitimate letter if corrupt or hostile storage had 40 junk keys first.
+  // Own-property checks also exclude inherited dictionary/prototype values.
+  for (const letter of LETTERS) {
+    if (!Object.hasOwn(value, letter)) continue;
+    const count = value[letter];
+    if (!Number.isSafeInteger(count) || count <= 0) continue;
     clean[letter] = Math.min(count, MAX_COUNT);
   }
   return clean;
