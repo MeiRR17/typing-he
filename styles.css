@@ -13,3 +13,15 @@
 .week-panel-title .button{font-size:11px;padding:7px 11px}
 .week-panel-title .button:disabled{opacity:.5;cursor:not-allowed}
 .week-panel-title .button:focus-visible{outline:2px solid #4b88e8;outline-offset:2px}
+
+/* Custom practice passages are transient, with no localStorage persistence. */
+.custom-practice{border-top:1px solid #dce5ef;padding-top:15px;margin-top:18px}
+.custom-practice h3{font-size:.9rem;margin:0 0 9px}
+.custom-practice label{display:block;font-size:.78rem;font-weight:700;margin-bottom:7px}
+.custom-practice textarea{width:100%;min-height:85px;padding:9px;border:1px solid #b8cddf;border-radius:8px;resize:vertical;background:#fbfdff;color:#183550;direction:rtl;text-align:right;font-size:.85rem;line-height:1.65}
+.custom-practice textarea:focus-visible{outline:3px solid #a3dcd5;outline-offset:2px}
+.custom-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.custom-actions .button{flex:1 1 auto;font-size:.76rem;padding:7px 8px}
+.custom-practice .small{margin:8px 0 0;line-height:1.55}
+.lesson:disabled{cursor:not-allowed;opacity:.6}
+@media(prefers-color-scheme:dark){.custom-practice{border-color:#36516a}.custom-practice textarea{background:#172c3f;color:#fff;border-color:#4e6d84}}

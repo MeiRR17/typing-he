@@ -6,7 +6,7 @@ A free, offline-friendly browser application. No server, account, third-party li
 
 ## What's included
 
-- Six progressive Hebrew typing lessons: home row, everyday words, final letters, sentences, punctuation and fluency, plus **one personalized lesson** that targets commonly mistyped Hebrew letters.
+- Six progressive Hebrew typing lessons: home row, everyday words, final letters, sentences, punctuation and fluency, plus **one personalized lesson** that targets commonly mistyped Hebrew letters and a **custom passage lesson** you can write yourself.
 - Character-by-character visual feedback showing correctly entered letters, mismatches, and the next character.
 - Live words-per-minute (WPM), cumulative keystroke accuracy, elapsed time and correct-prefix progress. A **Pause / Resume** control suspends typing and excludes paused duration from elapsed time and WPM. Hiding the browser tab automatically pauses an active lesson; returning requires an explicit resume, preserving typed content and counters.
 - A visual reference for the usual physical Hebrew keyboard layout, highlighting the next required character.
@@ -37,6 +37,7 @@ Open \`http://localhost:8000\`. GitHub Pages or another static hosting provider 
 3. Type the displayed passage into the practice box. Backspace lets you correct mistakes.
 4. Once your text matches the target exactly, the session finishes and saves its results locally.
 5. Choose **Personalized drill / אימון אישי** to practice your five most frequently mistyped letters. Until mistakes have been recorded, it uses basic home-row practice. Start the personalized lesson again after completing other lessons to refresh its target.
+6. For your own material, enter **10–800 characters containing at least one Hebrew letter** in the custom passage editor and choose **Use this passage / השתמש בקטע**. The custom lesson is unavailable until a valid passage is loaded. Its text remains in memory and the on-screen editor only, not localStorage, cookies or any exported report. Closing or refreshing the page clears it; **Clear passage** also removes it from the current session. Completed practice stores only generic metrics under the fixed `custom` lesson ID, never the text, captures or keystrokes. Loading another custom passage while typing asks before discarding the current attempt.
 
 Browser-stored records are sanitized before metrics are calculated: invalid numeric ranges, timestamps or malformed record shapes are discarded rather than producing nonsensical progress. Adaptive mistake counters are likewise read from a fixed whitelist of 27 Hebrew letters with own-property checks; corrupt storage entries with unrelated keys cannot crowd out legitimate counters, regardless of insertion order. Counts must be positive safe integers and are capped at 1,000,000 per letter. No passage text or keystrokes are saved in these counters. The seven-day chart and adjacent-week comparison use only completed session records already kept locally. Day boundaries follow the browser's local calendar date, even across daylight-saving changes; the prior period is the seven dates immediately before the current seven-date window. Results depend on the browser's 100-session retention limit and are not a streak or a comparison with other users.
 
@@ -45,6 +46,8 @@ The timer starts on the first input. Pause freezes the clock and disables input;
 The on-screen keyboard is a reference for a common Hebrew layout. Your operating system and hardware settings determine which characters physical keys actually type.
 
 ## Data and privacy
+
+Custom passage validation rejects malformed lengths, non-Hebrew input, control characters and hidden bidirectional override/isolate markers. Carriage returns become line feeds, and surrounding whitespace is trimmed before use; the exact sanitized passage is displayed for typing. The editor itself remains visible until you clear it or leave the page. Do not enter secrets into a passage if your device or browser extensions are untrusted.
 
 The site does not send typed content or performance metrics to a server. Completed session records are stored in \`localStorage\` in the current browser, with at most the 100 most recent records retained. Clearing browser data removes progress. A reset button clears history from the app.
 
@@ -55,6 +58,7 @@ index.html       App layout and accessible training controls
 styles.css       Responsive styling and dark theme
 src/app.js       Lessons, timing, accuracy, keyboard and persistence
 src/edits.js     Pure UTF-16 diff of newly inserted characters for accuracy measurement
+src/custom.js    Bounded custom Hebrew passage validation (not persisted)
 src/drills.js    Privacy-preserving letter-error summaries and adaptive drill generator
 src/trends.js    Pure weekly and adjacent-week summaries, recent bounded streak, record sanitation and aggregate-only CSV/JSON exports
 \`\`\`

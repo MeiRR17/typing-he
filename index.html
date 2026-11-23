@@ -33,6 +33,17 @@
       <aside class="sidebar" aria-labelledby="lessons-heading">
         <h2 id="lessons-heading" data-i18n="lessons">שיעורים</h2>
         <div id="lesson-list" class="lesson-list" role="group" aria-label="Typing lessons"></div>
+        <section class="custom-practice" aria-labelledby="custom-heading">
+          <h3 id="custom-heading" data-i18n="customHeading">אימון עם טקסט משלך</h3>
+          <label for="custom-passage" data-i18n="customLabel">קטע לתרגול בעברית</label>
+          <textarea id="custom-passage" dir="rtl" lang="he" spellcheck="false" maxlength="800" rows="4"
+            autocomplete="off" aria-describedby="custom-status"></textarea>
+          <div class="custom-actions">
+            <button id="use-custom" type="button" class="button" data-i18n="customApply">השתמש בקטע</button>
+            <button id="clear-custom" type="button" class="button" data-i18n="customClear">נקה קטע</button>
+          </div>
+          <p id="custom-status" class="small" role="status" aria-live="polite"></p>
+        </section>
         <div class="sidebar-note" data-i18n="lessonNote">אפשר להתחיל מכל שיעור. האימון לא דורש חשבון או חיבור לרשת.</div>
       </aside>
       <section class="practice" id="practice" aria-labelledby="lesson-title">

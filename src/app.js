@@ -1,6 +1,7 @@
 import { cleanMistakes, mergeMistakes, weakKeys, createAdaptiveTarget } from './drills.js';
 import { weeklyActivity, weeklyActivityCsv, weeklyActivityJson, weeklyComparison, weeklyComparisonJson, recentPracticeStreak, cleanSessionRecords } from './trends.js';
 import { insertedSegment } from './edits.js';
+import { prepareCustomPassage } from './custom.js';
 
 const STORAGE_KEY = 'typing-he:sessions:v1';
 const MISTAKES_KEY = 'typing-he:mistakes:v1';
@@ -46,6 +47,12 @@ const LESSONS = [
     title: { he: 'אימון אישי', en: 'Personalized drill' },
     description: { he: 'תרגול לפי האותיות שטעית בהן באימונים קודמים.', en: 'Practice letters you mistyped in previous sessions.' },
     target: ''
+  },
+  {
+    id: 'custom',
+    title: { he: 'טקסט אישי', en: 'Your own passage' },
+    description: { he: 'הטקסט זמין רק במהלך השימוש בדף.', en: 'Your text stays only in this open page.' },
+    target: ''
   }
 ];
 
@@ -80,7 +87,14 @@ const TEXT = {
     weekCompare: 'בהשוואה לשבעת הימים הקודמים', weekVs: 'לעומת', weekWpmDelta: 'שינוי במהירות ממוצעת',
     weekAccuracyDelta: 'שינוי בדיוק ממוצע', weekNoEarlier: 'אין אימונים באחד החלונות, ולכן אין השוואת מהירות ודיוק',
     streak: 'רצף אימון אחרון', streakDays: 'ימים', streakAtLeast: 'לפחות', streakThroughYesterday: 'עד אתמול (היום עדיין ללא אימון)',
-    streakToday: 'כולל היום', streakNone: 'אין רצף פעיל של אימונים בימים האחרונים'
+    streakToday: 'כולל היום', streakNone: 'אין רצף פעיל של אימונים בימים האחרונים',
+    customHeading: 'אימון עם טקסט משלך', customLabel: 'קטע לתרגול בעברית',
+    customApply: 'השתמש בקטע', customClear: 'נקה קטע',
+    customHelp: '10–800 תווים עם אות עברית אחת לפחות. הטקסט לא נשמר, ורק מדדי האימון נשמרים בסיום.',
+    customLoaded: 'הקטע נטען לאימון. הוא יימחק עם סגירת הדף.',
+    customCleared: 'הקטע נמחק מהעורך ומהזיכרון הפעיל.',
+    customInvalid: 'יש להזין 10–800 תווים, כולל אות עברית אחת לפחות, ללא תווי בקרה או סימני כיווניות מוסתרים.',
+    customReplaceConfirm: 'לעבור לאימון החדש ולוותר על ההקלדה הנוכחית?'
   },
   en: {
     skip: 'Skip to practice', language: 'Language', eyebrow: 'Free practice · no signup',
@@ -106,7 +120,14 @@ const TEXT = {
     weekCompare: 'Compared with the previous seven days', weekVs: 'vs', weekWpmDelta: 'Average speed change',
     weekAccuracyDelta: 'Average accuracy change', weekNoEarlier: 'A week has no sessions; speed and accuracy cannot be compared',
     streak: 'Recent practice streak', streakDays: 'days', streakAtLeast: 'at least', streakThroughYesterday: 'through yesterday (no session today yet)',
-    streakToday: 'including today', streakNone: 'No active practice streak over the last two days'
+    streakToday: 'including today', streakNone: 'No active practice streak over the last two days',
+    customHeading: 'Practice your own text', customLabel: 'Hebrew passage to practice',
+    customApply: 'Use this passage', customClear: 'Clear passage',
+    customHelp: '10–800 characters with at least one Hebrew letter. Text is not saved; only completed-session metrics are stored.',
+    customLoaded: 'Passage loaded for practice. It will disappear when this page is closed.',
+    customCleared: 'Passage cleared from the editor and active memory.',
+    customInvalid: 'Enter 10–800 characters including a Hebrew letter, with no control or hidden direction characters.',
+    customReplaceConfirm: 'Switch lessons and discard your current typing progress?'
   }
 };
 
@@ -116,7 +137,10 @@ const passage = $('#passage');
 const lessonsContainer = $('#lesson-list');
 const historyContainer = $('#history-list');
 const langSelect = $('#language');
+const customEditor = $('#custom-passage');
+const customStatus = $('#custom-status');
 let selected = 0;
+let customTarget = '';
 let records = loadRecords();
 let mistakes = loadMistakes();
 let sessionMistakes = Object.create(null);
@@ -188,6 +212,7 @@ function renderLessons() {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'lesson' + (selected === i ? ' active' : '');
+    button.disabled = lesson.id === 'custom' && !customTarget;
     button.setAttribute('aria-pressed', String(selected === i));
     const heading = document.createElement('strong');
     heading.textContent = String(i + 1) + '. ' + lesson.title[language()];
@@ -446,7 +471,8 @@ function resetLesson() {
   previousValue = '';
   finished = false;
   sessionMistakes = Object.create(null);
-  activeTarget = LESSONS[selected].id === 'adaptive' ? createAdaptiveTarget(mistakes) : LESSONS[selected].target;
+  activeTarget = LESSONS[selected].id === 'adaptive' ? createAdaptiveTarget(mistakes) :
+    LESSONS[selected].id === 'custom' ? customTarget : LESSONS[selected].target;
   input.disabled = false;
   input.value = '';
   renderLessonLabels();
@@ -548,6 +574,37 @@ $('#week-compare-export').addEventListener('click', () => {
     'application/json;charset=utf-8');
 });
 
+function describeCustom() {
+  customStatus.textContent = customTarget ? words().customLoaded : words().customHelp;
+}
+
+$('#use-custom').addEventListener('click', () => {
+  let target;
+  try {
+    target = prepareCustomPassage(customEditor.value);
+  } catch {
+    customStatus.textContent = words().customInvalid;
+    return;
+  }
+  if (startedAt !== null && !finished && !window.confirm(words().customReplaceConfirm)) return;
+  customTarget = target;
+  selected = LESSONS.findIndex(lesson => lesson.id === 'custom');
+  resetLesson();
+  describeCustom();
+  input.focus();
+});
+$('#clear-custom').addEventListener('click', () => {
+  if (LESSONS[selected].id === 'custom' && startedAt !== null && !finished &&
+      !window.confirm(words().customReplaceConfirm)) return;
+  customEditor.value = '';
+  customTarget = '';
+  if (LESSONS[selected].id === 'custom') {
+    selected = 0;
+    resetLesson();
+  } else renderLessons();
+  customStatus.textContent = words().customCleared;
+});
+
 $('#pause').addEventListener('click', togglePause);
 // Stop elapsed-time inflation when the tab is hidden; resume is explicit.
 document.addEventListener('visibilitychange', () => {
@@ -562,6 +619,7 @@ langSelect.addEventListener('change', () => {
   // UI localization must not restart an active lesson, clear typed content,
   // discard mistake counters or reset the monotonic timing interval.
   translate();
+  describeCustom();
   renderLessonLabels();
   renderLessons();
   renderPassage();
@@ -585,6 +643,7 @@ $('#clear-history').addEventListener('click', () => {
 });
 
 translate();
+describeCustom();
 renderOverview();
 renderHistory();
 renderWeakKeys();
