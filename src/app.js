@@ -1,0 +1,650 @@
+import { cleanMistakes, mergeMistakes, weakKeys, createAdaptiveTarget } from './drills.js';
+import { weeklyActivity, weeklyActivityCsv, weeklyActivityJson, weeklyComparison, weeklyComparisonJson, recentPracticeStreak, cleanSessionRecords } from './trends.js';
+import { insertedSegment } from './edits.js';
+import { prepareCustomPassage } from './custom.js';
+
+const STORAGE_KEY = 'typing-he:sessions:v1';
+const MISTAKES_KEY = 'typing-he:mistakes:v1';
+const LESSONS = [
+  {
+    id: 'home',
+    title: { he: 'שורת הבית', en: 'Home-row keys' },
+    description: { he: 'הכירו את האותיות שבשורה המרכזית.', en: 'Build confidence with the middle row of the keyboard.' },
+    target: 'שש דד גג ככ עע יי חח לל שדגכ עיחל'
+  },
+  {
+    id: 'first-words',
+    title: { he: 'מילים שימושיות', en: 'Useful words' },
+    description: { he: 'מילים יומיומיות עם רווחים.', en: 'Practice common Hebrew words and spaces.' },
+    target: 'שלום תודה יום טוב אני אתה בית ספר חברים לימוד'
+  },
+  {
+    id: 'final-letters',
+    title: { he: 'אותיות סופיות', en: 'Final Hebrew letters' },
+    description: { he: 'תרגלו ך ם ן ף ץ בתוך מילים.', en: 'Learn the five Hebrew final-form letters in context.' },
+    target: 'מלך עולם מוכן ענן חוף קיץ סוף דרך שם זמן'
+  },
+  {
+    id: 'sentences',
+    title: { he: 'משפטים קצרים', en: 'Short sentences' },
+    description: { he: 'עברו מהקלדת מילים למשפטים שלמים.', en: 'Move from isolated words to complete sentences.' },
+    target: 'אני לומד להקליד בעברית. בכל יום אני משתפר קצת יותר. המטרה שלי היא להקליד בלי להסתכל על המקלדת.'
+  },
+  {
+    id: 'punctuation',
+    title: { he: 'סימני פיסוק', en: 'Punctuation' },
+    description: { he: 'פסיקים, נקודות, סימני שאלה וקריאה.', en: 'Practice commas, periods, questions, and exclamations.' },
+    target: 'שלום! מה שלומך? היום נתרגל הקלדה, נלמד דברים חדשים, ונסיים בהצלחה.'
+  },
+  {
+    id: 'flow',
+    title: { he: 'אימון שטף', en: 'Fluency challenge' },
+    description: { he: 'קטע ארוך לפיתוח קצב יציב ודיוק.', en: 'Build speed while maintaining accuracy over a paragraph.' },
+    target: 'הקלדה עיוורת היא מיומנות שאפשר לפתח בעזרת אימון קבוע. בהתחלה כדאי להקליד לאט ולשים לב לדיוק. עם הזמן האצבעות לומדות את מיקומי האותיות, והמחשבה יכולה להתמקד במילים עצמן במקום במקלדת.'
+  },
+  {
+    id: 'adaptive',
+    title: { he: 'אימון אישי', en: 'Personalized drill' },
+    description: { he: 'תרגול לפי האותיות שטעית בהן באימונים קודמים.', en: 'Practice letters you mistyped in previous sessions.' },
+    target: ''
+  },
+  {
+    id: 'custom',
+    title: { he: 'טקסט אישי', en: 'Your own passage' },
+    description: { he: 'הטקסט זמין רק במהלך השימוש בדף.', en: 'Your text stays only in this open page.' },
+    target: ''
+  }
+];
+
+const KEYBOARD_ROWS = [
+  [['/','Q'],["'","W"],['ק','E'],['ר','R'],['א','T'],['ט','Y'],['ו','U'],['ן','I'],['ם','O'],['פ','P']],
+  [['ש','A'],['ד','S'],['ג','D'],['כ','F'],['ע','G'],['י','H'],['ח','J'],['ל','K'],['ך','L'],['ף',';']],
+  [['ז','Z'],['ס','X'],['ב','C'],['ה','V'],['נ','B'],['מ','N'],['צ','M'],['ת',','],['ץ','.'],['.','/']]
+];
+
+const TEXT = {
+  he: {
+    skip: 'מעבר לאימון', language: 'שפה', eyebrow: 'אימון חינמי · בלי הרשמה',
+    headline: 'הקלדה עיוורת בעברית, צעד אחרי צעד.',
+    intro: 'בחרו שיעור, הקלידו את הטקסט, ושפרו את המהירות והדיוק. ההתקדמות נשמרת בדפדפן בלבד.',
+    completed: 'אימונים שהושלמו', bestSpeed: 'מהירות שיא (WPM)', averageAccuracy: 'דיוק ממוצע',
+    lessons: 'שיעורים', lessonNote: 'אפשר להתחיל מכל שיעור. האימון לא דורש חשבון או חיבור לרשת.',
+    restart: 'התחל מחדש', pause: 'השהה', resume: 'המשך', paused: 'האימון מושהה. לחצו על המשך כדי לחזור להקלדה.', speed: 'מילים בדקה', accuracy: 'דיוק מצטבר', time: 'זמן', progress: 'התקדמות',
+    typingLabel: 'הקלידו כאן לפי הטקסט שמופיע למעלה', keyboard: 'מפת מקשים עברית',
+    keyboardHint: 'המקשים מציגים את סידור האותיות בעברית במקלדת רגילה. המקור של התווים הוא מהמקלדת שלך.',
+    history: 'אימונים אחרונים', clearHistory: 'איפוס התקדמות',
+    storage: 'התוצאות נשמרות ב־localStorage בדפדפן הזה בלבד. ניקוי נתוני הגלישה ימחוק אותן.',
+    step: 'שיעור', ready: 'התחילו להקליד. הזמן יתחיל עם התו הראשון.',
+    keepGoing: 'המשיכו להקליד. אפשר לתקן שגיאות באמצעות Backspace.',
+    complete: 'השיעור הושלם! התוצאה נשמרה בדפדפן.',
+    none: 'אין עדיין אימונים שהושלמו.', confirmClear: 'למחוק את כל ההתקדמות שנשמרה בדפדפן הזה?',
+    cleared: 'ההתקדמות אופסה.', best: 'שיא',
+    weakHeading: 'אותיות לתרגול', noWeakKeys: 'לא זוהו טעויות עדיין. האימון האישי מתחיל בתרגול שורת הבית.',
+    weakNote: 'ספירת שגיאות לפי האות המצופה בלבד; לא נשמרים קטעי טקסט מוקלדים.',
+    weekHeading: 'פעילות בשבעת הימים האחרונים', weekEmpty: 'עדיין אין אימונים שהושלמו השבוע.',
+    weekSessions: 'אימונים', weekActive: 'ימים פעילים', weekAverage: 'מהירות ממוצעת',
+    weekDay: 'אימונים ביום', weekExport: '↓ CSV', weekExportJson: '↓ JSON', weekCompareExport: '↓ השוואת 14 ימים',
+    weekCompare: 'בהשוואה לשבעת הימים הקודמים', weekVs: 'לעומת', weekWpmDelta: 'שינוי במהירות ממוצעת',
+    weekAccuracyDelta: 'שינוי בדיוק ממוצע', weekNoEarlier: 'אין אימונים באחד החלונות, ולכן אין השוואת מהירות ודיוק',
+    streak: 'רצף אימון אחרון', streakDays: 'ימים', streakAtLeast: 'לפחות', streakThroughYesterday: 'עד אתמול (היום עדיין ללא אימון)',
+    streakToday: 'כולל היום', streakNone: 'אין רצף פעיל של אימונים בימים האחרונים',
+    customHeading: 'אימון עם טקסט משלך', customLabel: 'קטע לתרגול בעברית',
+    customApply: 'השתמש בקטע', customClear: 'נקה קטע',
+    customHelp: '10–800 תווים עם אות עברית אחת לפחות. הטקסט לא נשמר, ורק מדדי האימון נשמרים בסיום.',
+    customLoaded: 'הקטע נטען לאימון. הוא יימחק עם סגירת הדף.',
+    customCleared: 'הקטע נמחק מהעורך ומהזיכרון הפעיל.',
+    customInvalid: 'יש להזין 10–800 תווים, כולל אות עברית אחת לפחות, ללא תווי בקרה או סימני כיווניות מוסתרים.',
+    customReplaceConfirm: 'לעבור לאימון החדש ולוותר על ההקלדה הנוכחית?'
+  },
+  en: {
+    skip: 'Skip to practice', language: 'Language', eyebrow: 'Free practice · no signup',
+    headline: 'Learn Hebrew touch typing, one lesson at a time.',
+    intro: 'Choose a lesson, type the passage, and improve speed and accuracy. Progress stays in your browser.',
+    completed: 'Completed sessions', bestSpeed: 'Best speed (WPM)', averageAccuracy: 'Average accuracy',
+    lessons: 'Lessons', lessonNote: 'Start at any lesson. No account or internet connection is required.',
+    restart: 'Restart', pause: 'Pause', resume: 'Resume', paused: 'Practice paused. Choose Resume to continue typing.', speed: 'Words per minute', accuracy: 'Cumulative accuracy', time: 'Time', progress: 'Progress',
+    typingLabel: 'Type the passage shown above', keyboard: 'Hebrew keyboard reference',
+    keyboardHint: 'Keys show the usual Hebrew physical layout. Your own keyboard layout controls actual input.',
+    history: 'Recent sessions', clearHistory: 'Reset progress',
+    storage: 'Results are stored in localStorage on this browser only. Clearing browser data removes them.',
+    step: 'Lesson', ready: 'Start typing. The timer begins with your first character.',
+    keepGoing: 'Keep typing. Use Backspace to correct mistakes.',
+    complete: 'Lesson completed! Your result was saved in this browser.',
+    none: 'No completed sessions yet.', confirmClear: 'Delete all locally saved typing progress?',
+    cleared: 'Progress reset.', best: 'Best',
+    weakHeading: 'Keys to practice', noWeakKeys: 'No mistakes yet. The personal drill starts with home-row letters.',
+    weakNote: 'Only expected-letter error counts are saved, never typed passages.',
+    weekHeading: 'Activity over the past seven days', weekEmpty: 'No completed practice sessions this week yet.',
+    weekSessions: 'sessions', weekActive: 'active days', weekAverage: 'average speed',
+    weekDay: 'sessions on this day', weekExport: '↓ CSV', weekExportJson: '↓ JSON', weekCompareExport: '↓ 14-day comparison',
+    weekCompare: 'Compared with the previous seven days', weekVs: 'vs', weekWpmDelta: 'Average speed change',
+    weekAccuracyDelta: 'Average accuracy change', weekNoEarlier: 'A week has no sessions; speed and accuracy cannot be compared',
+    streak: 'Recent practice streak', streakDays: 'days', streakAtLeast: 'at least', streakThroughYesterday: 'through yesterday (no session today yet)',
+    streakToday: 'including today', streakNone: 'No active practice streak over the last two days',
+    customHeading: 'Practice your own text', customLabel: 'Hebrew passage to practice',
+    customApply: 'Use this passage', customClear: 'Clear passage',
+    customHelp: '10–800 characters with at least one Hebrew letter. Text is not saved; only completed-session metrics are stored.',
+    customLoaded: 'Passage loaded for practice. It will disappear when this page is closed.',
+    customCleared: 'Passage cleared from the editor and active memory.',
+    customInvalid: 'Enter 10–800 characters including a Hebrew letter, with no control or hidden direction characters.',
+    customReplaceConfirm: 'Switch lessons and discard your current typing progress?'
+  }
+};
+
+const $ = selector => document.querySelector(selector);
+const input = $('#typing-input');
+const passage = $('#passage');
+const lessonsContainer = $('#lesson-list');
+const historyContainer = $('#history-list');
+const langSelect = $('#language');
+const customEditor = $('#custom-passage');
+const customStatus = $('#custom-status');
+let selected = 0;
+let customTarget = '';
+let records = loadRecords();
+let mistakes = loadMistakes();
+let sessionMistakes = Object.create(null);
+let activeTarget = '';
+let startedAt = null;
+let pausedAt = null;
+let pausedDurationMs = 0;
+let timerHandle = null;
+let attempts = 0;
+let correctAttempts = 0;
+let previousValue = '';
+let finished = false;
+
+function language() { return langSelect.value === 'en' ? 'en' : 'he'; }
+function words() { return TEXT[language()]; }
+
+function loadRecords() {
+  try {
+    const decoded = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    return cleanSessionRecords(decoded);
+  } catch {
+    return [];
+  }
+}
+
+function saveRecords() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
+  catch { /* Training remains usable if storage is disabled. */ }
+}
+function loadMistakes() {
+  try { return cleanMistakes(JSON.parse(localStorage.getItem(MISTAKES_KEY) || '{}')); }
+  catch { return cleanMistakes({}); }
+}
+function saveMistakes() {
+  try { localStorage.setItem(MISTAKES_KEY, JSON.stringify(mistakes)); }
+  catch { /* Practice remains available if storage is disabled. */ }
+}
+
+function elapsedMs() {
+  return startedAt === null ? 0 :
+    Math.max(0, (pausedAt ?? performance.now()) - startedAt - pausedDurationMs);
+}
+function formatTime(ms) {
+  const seconds = Math.floor(ms / 1000);
+  return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+}
+function accuracy() {
+  return attempts === 0 ? 100 : Math.round(correctAttempts / attempts * 100);
+}
+function speed() {
+  const durationMinutes = elapsedMs() / 60000;
+  return durationMinutes > 0.001 ? Math.round((correctAttempts / 5) / durationMinutes) : 0;
+}
+
+function translate() {
+  const lang = language();
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
+  for (const node of document.querySelectorAll('[data-i18n]')) {
+    node.textContent = words()[node.dataset.i18n] || '';
+  }
+}
+
+function renderLessons() {
+  lessonsContainer.replaceChildren();
+  const fragment = document.createDocumentFragment();
+  for (let i = 0; i < LESSONS.length; i++) {
+    const lesson = LESSONS[i];
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'lesson' + (selected === i ? ' active' : '');
+    button.disabled = lesson.id === 'custom' && !customTarget;
+    button.setAttribute('aria-pressed', String(selected === i));
+    const heading = document.createElement('strong');
+    heading.textContent = String(i + 1) + '. ' + lesson.title[language()];
+    const subtitle = document.createElement('small');
+    const history = records.filter(r => r.lessonId === lesson.id);
+    const best = history.length ? Math.max(...history.map(r => r.wpm)) : null;
+    subtitle.textContent = best === null ? lesson.description[language()] : words().best + ': ' + best + ' WPM';
+    button.append(heading, subtitle);
+    button.addEventListener('click', () => {
+      selected = i;
+      resetLesson();
+    });
+    fragment.append(button);
+  }
+  lessonsContainer.append(fragment);
+}
+
+function renderKeyboard(nextCharacter) {
+  if (!$('#keyboard').children.length) {
+    const fragment = document.createDocumentFragment();
+    for (const row of KEYBOARD_ROWS) {
+      const container = document.createElement('div');
+      container.className = 'key-row';
+      for (const [character, latin] of row) {
+        const key = document.createElement('div');
+        key.className = 'key';
+        key.dataset.character = character;
+        const glyph = document.createElement('strong');
+        glyph.textContent = character;
+        const label = document.createElement('small');
+        label.textContent = latin;
+        key.append(glyph, label);
+        container.append(key);
+      }
+      fragment.append(container);
+    }
+    const bottom = document.createElement('div');
+    bottom.className = 'key-row';
+    const space = document.createElement('div');
+    space.className = 'key space';
+    space.dataset.character = ' ';
+    space.textContent = 'Space';
+    bottom.append(space);
+    fragment.append(bottom);
+    $('#keyboard').append(fragment);
+  }
+  for (const key of document.querySelectorAll('#keyboard .key')) {
+    key.classList.toggle('next', key.dataset.character === nextCharacter);
+  }
+}
+
+function renderPassage() {
+  const target = activeTarget;
+  const value = input.value;
+  let prefixLength = 0;
+  while (prefixLength < value.length && prefixLength < target.length &&
+         value[prefixLength] === target[prefixLength]) prefixLength++;
+
+  const fragment = document.createDocumentFragment();
+  for (let index = 0; index < target.length; index++) {
+    const char = document.createElement('span');
+    char.textContent = target[index];
+    if (index < value.length) char.className = value[index] === target[index] ? 'correct' : 'incorrect';
+    else if (index === value.length) char.className = 'current';
+    fragment.append(char);
+  }
+  passage.replaceChildren(fragment);
+  const percentage = Math.floor(prefixLength / target.length * 100);
+  $('#progress').textContent = percentage + '%';
+  $('#progress-fill').style.width = percentage + '%';
+  $('#progress-track').setAttribute('aria-valuenow', String(percentage));
+  renderKeyboard(target[prefixLength] || '');
+}
+
+function renderStats() {
+  $('#speed').textContent = String(speed());
+  $('#accuracy').textContent = accuracy() + '%';
+  $('#timer').textContent = formatTime(elapsedMs());
+}
+
+function renderOverview() {
+  $('#completed-total').textContent = String(records.length);
+  $('#best-wpm').textContent = records.length ? String(Math.max(...records.map(r => r.wpm))) : '0';
+  $('#average-accuracy').textContent = records.length
+    ? Math.round(records.reduce((sum, record) => sum + record.accuracy, 0) / records.length) + '%'
+    : '—';
+}
+
+function renderWeakKeys() {
+  const region = $('#weak-keys');
+  region.replaceChildren();
+  const keys = weakKeys(mistakes);
+  if (!keys.length) {
+    const message = document.createElement('p');
+    message.textContent = words().noWeakKeys;
+    region.append(message);
+  } else {
+    for (const item of keys) {
+      const chip = document.createElement('span');
+      chip.className = 'weak-key';
+      chip.textContent = item.letter + ' · ' + item.count;
+      region.append(chip);
+    }
+  }
+  $('#weak-keys-heading').textContent = words().weakHeading;
+  $('#weak-keys-note').textContent = words().weakNote;
+}
+
+function renderWeekly() {
+  const comparison = weeklyComparison(records);
+  const summary = comparison.current;
+  $('#week-export').textContent = words().weekExport;
+  $('#week-export-json').textContent = words().weekExportJson;
+  $('#week-compare-export').textContent = words().weekCompareExport;
+  $('#week-export').disabled = $('#week-export-json').disabled = summary.totalSessions === 0;
+  $('#week-compare-export').disabled = summary.totalSessions + comparison.previous.totalSessions === 0;
+  const labels = words();
+  $('#week-heading').textContent = labels.weekHeading;
+  const description = $('#week-summary');
+  description.textContent = summary.totalSessions
+    ? summary.totalSessions + ' ' + labels.weekSessions + ' · ' +
+      summary.activeDays + ' ' + labels.weekActive + ' · ' +
+      labels.weekAverage + ': ' + summary.averageWpm + ' WPM'
+    : labels.weekEmpty;
+  const prior = comparison.previous;
+  const signed = value => (value > 0 ? '+' : '') + value;
+  const parts = [
+    labels.weekCompare + ': ' + summary.totalSessions + ' ' + labels.weekVs + ' ' +
+      prior.totalSessions + ' ' + labels.weekSessions +
+      ' (' + signed(comparison.sessionDifference) + ')',
+  ];
+  if (comparison.wpmDifference !== null) {
+    parts.push(labels.weekWpmDelta + ': ' + signed(comparison.wpmDifference) + ' WPM');
+    parts.push(labels.weekAccuracyDelta + ': ' + signed(comparison.accuracyDifference) + ' pp');
+  } else parts.push(labels.weekNoEarlier);
+  $('#week-comparison').textContent = parts.join(' · ');
+  const streak = recentPracticeStreak(records);
+  $('#week-streak').textContent = streak.days
+    ? labels.streak + ': ' + (streak.atLeast ? labels.streakAtLeast + ' ' : '') +
+      streak.days + ' ' + labels.streakDays + ' · ' +
+      (streak.graceToday ? labels.streakThroughYesterday : labels.streakToday)
+    : labels.streakNone;
+  const region = $('#week-bars');
+  region.replaceChildren();
+  const maxCount = Math.max(1, ...summary.days.map(day => day.sessions));
+  const locale = language() === 'he' ? 'he-IL' : 'en-US';
+  const formatter = new Intl.DateTimeFormat(locale, { weekday: 'short', month: 'short', day: 'numeric' });
+  const fragment = document.createDocumentFragment();
+  for (const day of summary.days) {
+    const row = document.createElement('li');
+    const date = new Date(day.date + 'T12:00:00');
+    const label = document.createElement('time');
+    label.dateTime = day.date;
+    label.textContent = formatter.format(date);
+    const graph = document.createElement('div');
+    graph.className = 'week-bar-track';
+    graph.setAttribute('aria-hidden', 'true');
+    const fill = document.createElement('span');
+    fill.className = 'week-bar-fill';
+    fill.style.width = (day.sessions / maxCount * 100) + '%';
+    graph.append(fill);
+    const value = document.createElement('span');
+    value.className = 'week-count';
+    value.textContent = String(day.sessions);
+    row.setAttribute('aria-label', formatter.format(date) + ': ' +
+      day.sessions + ' ' + labels.weekDay);
+    row.append(label, graph, value);
+    fragment.append(row);
+  }
+  region.append(fragment);
+}
+
+function renderHistory() {
+  renderWeekly();
+  historyContainer.replaceChildren();
+  const recent = records.slice(-5).reverse();
+  if (!recent.length) {
+    const empty = document.createElement('li');
+    empty.textContent = words().none;
+    historyContainer.append(empty);
+    return;
+  }
+  for (const record of recent) {
+    const lesson = LESSONS.find(item => item.id === record.lessonId);
+    const row = document.createElement('li');
+    const title = document.createElement('strong');
+    title.textContent = (lesson?.title[language()] || record.lessonId) +
+      ' · ' + record.wpm + ' WPM · ' + record.accuracy + '%';
+    const stamp = document.createElement('small');
+    const date = new Date(record.finishedAt);
+    stamp.textContent = Number.isFinite(date.getTime())
+      ? new Intl.DateTimeFormat(language() === 'he' ? 'he-IL' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+      : '';
+    row.append(title, stamp);
+    historyContainer.append(row);
+  }
+}
+
+function stopTimer() {
+  if (timerHandle !== null) clearInterval(timerHandle);
+  timerHandle = null;
+}
+
+function updatePauseControl() {
+  const button = $('#pause');
+  button.disabled = startedAt === null || finished;
+  button.textContent = pausedAt === null ? words().pause : words().resume;
+  button.setAttribute('aria-pressed', String(pausedAt !== null));
+}
+
+function pauseLesson() {
+  if (finished || startedAt === null || pausedAt !== null) return;
+  pausedAt = performance.now();
+  input.disabled = true;
+  stopTimer();
+  renderStats();
+  updatePauseControl();
+  $('#typing-status').textContent = words().paused;
+}
+
+function togglePause() {
+  if (finished || startedAt === null) return;
+  if (pausedAt === null) {
+    pauseLesson();
+    return;
+  }
+  pausedDurationMs += performance.now() - pausedAt;
+  pausedAt = null;
+  input.disabled = false;
+  timerHandle = setInterval(renderStats, 250);
+  updatePauseControl();
+  renderStats();
+  $('#typing-status').textContent = words().keepGoing;
+  input.focus();
+}
+
+function renderLessonLabels() {
+  const lesson = LESSONS[selected];
+  $('#lesson-title').textContent = lesson.title[language()];
+  $('#lesson-step').textContent = words().step + ' ' + (selected + 1) + ' / ' + LESSONS.length;
+  $('#lesson-description').textContent = lesson.description[language()];
+  $('#typing-status').textContent = finished ? words().complete :
+    pausedAt !== null ? words().paused :
+    startedAt === null ? words().ready : words().keepGoing;
+  $('#typing-status').classList.toggle('complete', finished);
+  updatePauseControl();
+}
+
+function resetLesson() {
+  stopTimer();
+  startedAt = null;
+  pausedAt = null;
+  pausedDurationMs = 0;
+  attempts = 0;
+  correctAttempts = 0;
+  previousValue = '';
+  finished = false;
+  sessionMistakes = Object.create(null);
+  activeTarget = LESSONS[selected].id === 'adaptive' ? createAdaptiveTarget(mistakes) :
+    LESSONS[selected].id === 'custom' ? customTarget : LESSONS[selected].target;
+  input.disabled = false;
+  input.value = '';
+  renderLessonLabels();
+  renderLessons();
+  renderPassage();
+  renderStats();
+}
+
+function completeLesson() {
+  if (finished) return;
+  finished = true;
+  stopTimer();
+  renderStats();
+  input.disabled = true;
+  updatePauseControl();
+  $('#typing-status').textContent = words().complete;
+  $('#typing-status').classList.add('complete');
+  records.push({
+    lessonId: LESSONS[selected].id,
+    wpm: speed(),
+    accuracy: accuracy(),
+    seconds: Math.round(elapsedMs() / 1000),
+    finishedAt: new Date().toISOString()
+  });
+  records = records.slice(-100);
+  saveRecords();
+  mistakes = mergeMistakes(mistakes, sessionMistakes);
+  saveMistakes();
+  renderWeakKeys();
+  renderOverview();
+  renderHistory();
+  renderLessons();
+}
+
+// Block bulk insertion through both the normal paste/drop events and the
+// beforeinput route used by some browsers and mobile input mechanisms.
+input.addEventListener('paste', event => event.preventDefault());
+input.addEventListener('drop', event => event.preventDefault());
+input.addEventListener('beforeinput', event => {
+  if (['insertFromPaste', 'insertFromDrop', 'insertFromYank'].includes(event.inputType)) {
+    event.preventDefault();
+  }
+});
+input.addEventListener('input', () => {
+  if (finished) return;
+  if (startedAt === null && input.value.length > 0) {
+    startedAt = performance.now();
+    timerHandle = setInterval(renderStats, 250);
+    updatePauseControl();
+  }
+  const current = input.value;
+  const { start, inserted } = insertedSegment(previousValue, current);
+  // Unlike a length-only comparison, replacing selected text with an equal
+  // number of characters still counts new attempts and mistakes. A deletion
+  // inserts no characters, so it does not artificially raise typing speed.
+  for (let offset = 0; offset < inserted.length; offset++) {
+    const i = start + offset;
+    attempts++;
+    const expected = activeTarget[i];
+    if (inserted[offset] === expected) correctAttempts++;
+    else if (expected && /[א-ת]/u.test(expected)) {
+      sessionMistakes[expected] = (sessionMistakes[expected] || 0) + 1;
+    }
+  }
+  previousValue = current;
+  renderPassage();
+  renderStats();
+  $('#typing-status').textContent = words().keepGoing;
+  if (current === activeTarget) completeLesson();
+});
+
+function downloadWeeklyReport(filename, contents, type) {
+  const blob = new Blob([contents], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+$('#week-export-json').addEventListener('click', () => {
+  if (!weeklyActivity(records).totalSessions) return;
+  downloadWeeklyReport('hebrew-typing-weekly-summary.json', weeklyActivityJson(records),
+    'application/json;charset=utf-8');
+});
+$('#week-export').addEventListener('click', () => {
+  if (!weeklyActivity(records).totalSessions) return;
+  downloadWeeklyReport('hebrew-typing-weekly-summary.csv', weeklyActivityCsv(records),
+    'text/csv;charset=utf-8');
+});
+
+$('#week-compare-export').addEventListener('click', () => {
+  const comparison = weeklyComparison(records);
+  if (comparison.current.totalSessions + comparison.previous.totalSessions === 0) return;
+  downloadWeeklyReport('hebrew-typing-14-day-comparison.json', weeklyComparisonJson(records),
+    'application/json;charset=utf-8');
+});
+
+function describeCustom() {
+  customStatus.textContent = customTarget ? words().customLoaded : words().customHelp;
+}
+
+$('#use-custom').addEventListener('click', () => {
+  let target;
+  try {
+    target = prepareCustomPassage(customEditor.value);
+  } catch {
+    customStatus.textContent = words().customInvalid;
+    return;
+  }
+  if (startedAt !== null && !finished && !window.confirm(words().customReplaceConfirm)) return;
+  customTarget = target;
+  selected = LESSONS.findIndex(lesson => lesson.id === 'custom');
+  resetLesson();
+  describeCustom();
+  input.focus();
+});
+$('#clear-custom').addEventListener('click', () => {
+  if (LESSONS[selected].id === 'custom' && startedAt !== null && !finished &&
+      !window.confirm(words().customReplaceConfirm)) return;
+  customEditor.value = '';
+  customTarget = '';
+  if (LESSONS[selected].id === 'custom') {
+    selected = 0;
+    resetLesson();
+  } else renderLessons();
+  customStatus.textContent = words().customCleared;
+});
+
+$('#pause').addEventListener('click', togglePause);
+// Stop elapsed-time inflation when the tab is hidden; resume is explicit.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) pauseLesson();
+});
+
+$('#restart').addEventListener('click', () => {
+  resetLesson();
+  input.focus();
+});
+langSelect.addEventListener('change', () => {
+  // UI localization must not restart an active lesson, clear typed content,
+  // discard mistake counters or reset the monotonic timing interval.
+  translate();
+  describeCustom();
+  renderLessonLabels();
+  renderLessons();
+  renderPassage();
+  renderStats();
+  renderOverview();
+  renderHistory();
+  renderWeakKeys();
+});
+$('#clear-history').addEventListener('click', () => {
+  if (!window.confirm(words().confirmClear)) return;
+  records = [];
+  mistakes = cleanMistakes({});
+  sessionMistakes = Object.create(null);
+  saveMistakes();
+  saveRecords();
+  renderOverview();
+  renderHistory();
+  renderLessons();
+  renderWeakKeys();
+  $('#typing-status').textContent = words().cleared;
+});
+
+translate();
+describeCustom();
+renderOverview();
+renderHistory();
+renderWeakKeys();
+resetLesson();
